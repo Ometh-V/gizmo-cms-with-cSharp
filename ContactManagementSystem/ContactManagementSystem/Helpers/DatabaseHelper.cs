@@ -165,13 +165,13 @@ namespace ContactManagementSystem.Helpers
                     -- Insert default admin account (Password: Admin@123)
                     IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'admin')
                     INSERT INTO Users (Username, PasswordHash, Role)
-                    VALUES ('admin', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Admin');
+                    VALUES ('admin', 'e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7', 'Admin');
 
 
                     -- Insert default user account (Password: User@123)
                     IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'user')
                     INSERT INTO Users (Username, PasswordHash, Role)
-                    VALUES ('user', 'b0f73499da7573c9e1a576b9a04b7a2cc793a50a38d5dc66a0e94c2a7fb9e4e6', 'User');
+                    VALUES ('user', '3e7c19576488862816f13b512cacf3e4ba97dd97243ea0bd6a2ad1642d86ba72', 'User');
                     ";
                     cmd.ExecuteNonQuery();
             }
