@@ -148,6 +148,30 @@ namespace ContactManagementSystem.Helpers
                             ON DELETE CASCADE
                             ON UPDATE CASCADE
                     );
+
+                    
+                    -- Creating Users table
+                    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Users' AND xtype='U')
+                    CREATE TABLE Users (
+                        UserID       INT IDENTITY(1,1) PRIMARY KEY,
+                        Username     NVARCHAR(100) NOT NULL UNIQUE,
+                        PasswordHash NVARCHAR(256) NOT NULL,
+                        Role         NVARCHAR(20)  NOT NULL CHECK (Role IN ('Admin','User')),
+                        IsActive     BIT DEFAULT 1,
+                        CreatedAt    DATETIME DEFAULT GETDATE()
+                    );
+
+
+                    -- Insert default admin account (Password: Admin@123)
+                    IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'admin')
+                    INSERT INTO Users (Username, PasswordHash, Role)
+                    VALUES ('admin', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Admin');
+
+
+                    -- Insert default user account (Password: User@123)
+                    IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'user')
+                    INSERT INTO Users (Username, PasswordHash, Role)
+                    VALUES ('user', 'b0f73499da7573c9e1a576b9a04b7a2cc793a50a38d5dc66a0e94c2a7fb9e4e6', 'User');
                     ";
                     cmd.ExecuteNonQuery();
             }
