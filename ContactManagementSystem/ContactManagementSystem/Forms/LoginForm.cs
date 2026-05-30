@@ -13,7 +13,7 @@ namespace ContactManagementSystem.Forms
 {
     public partial class LoginForm : Form
     {
-        private bool _passowrdVisible = false;
+        private bool _passwordVisible = false;
         private int _loginAttempts = 0;
         private const int MaxAttempts = 5;
 
@@ -43,11 +43,11 @@ namespace ContactManagementSystem.Forms
             ApplyRoundedCorners();
             CenterCard();
             btnLogin.Refresh();
-            LoadRemeberedUser();
+            LoadRememberedUser();
         }
 
 
-        private void LoadRemeberedUser()
+        private void LoadRememberedUser()
         {
             var saved = AppSettings.LoadUsername();
             if (!string.IsNullOrEmpty(saved))
@@ -161,9 +161,9 @@ namespace ContactManagementSystem.Forms
 
         private void btnShowPassword_Click(object sender, EventArgs e)
         {
-            _passowrdVisible = !_passowrdVisible;
-            txtPassword.PasswordChar = _passowrdVisible ? '\0' : '●';
-            btnShowPass.Text = _passowrdVisible ? "🙈" : "👁";
+            _passwordVisible = !_passwordVisible;
+            txtPassword.PasswordChar = _passwordVisible ? '\0' : '●';
+            btnShowPass.Text = _passwordVisible ? "🙈" : "👁";
         }
 
 
