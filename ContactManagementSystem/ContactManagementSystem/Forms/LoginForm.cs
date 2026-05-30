@@ -117,6 +117,12 @@ namespace ContactManagementSystem.Forms
 
                 if (UserService.Login(username,password))
                 {
+                    if (chkRemember.Checked)
+                        AppSettings.SaveUsername(username);
+                    else
+                        AppSettings.ClearUsername();
+
+
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 }
