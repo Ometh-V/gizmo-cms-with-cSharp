@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 
@@ -15,14 +16,65 @@ namespace ContactManagementSystem.Forms
         private int _loginAttempts = 0;
         private const int MaxAttempts = 5;
 
+        [DllImport("Gdi32.dll")]
+        private static extern IntPtr CreateRoundRectRgn(
+            int nLeftRect, int nTopRect,
+            int nRightRect, int nBottomRect,
+            int nWidthEllipse, int nHeightEllipse);
+
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(
+            IntPtr hWnd, int Msg, int wParam, int lParam);
+
 
         public LoginForm()
         {
             InitializeComponent();
+        }
 
-            this.Text = "Login";
-            this.Size = new Size(420, 520);
-            this.StartPosition = FormStartPosition.CenterScreen;
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            ApplyRoundedCorners();
+            CenterCard();
+            btnLogin.Refresh();
+        }
+
+       
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            ApplyRoundedCorners();
+            CenterCard();
+        }
+
+        
+        private void ApplyRoundedCorners()
+        {
+            this.Region = System.Drawing.Region.FromHrgn(
+                CreateRoundRectRgn(0, 0, this.Width, this.Height, 20, 20));
+        }
+
+        
+        private void CenterCard()
+        {
+            pnlMain.Location = new Point(
+                (this.ClientSize.Width - pnlMain.Width) / 2,
+                (this.ClientSize.Height - pnlMain.Height) / 2);
+        }
+
+        
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ReleaseCapture();
+                SendMessage(this.Handle, 0xA1, 0x2, 0);
+            }
         }
 
 
