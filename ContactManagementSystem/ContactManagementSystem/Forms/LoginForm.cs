@@ -1,4 +1,5 @@
 ﻿using ContactManagementSystem.Services;
+using ContactManagementSystem.Helpers;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -42,6 +43,19 @@ namespace ContactManagementSystem.Forms
             ApplyRoundedCorners();
             CenterCard();
             btnLogin.Refresh();
+            LoadRemeberedUser();
+        }
+
+
+        private void LoadRemeberedUser()
+        {
+            var saved = AppSettings.LoadUsername();
+            if (!string.IsNullOrEmpty(saved))
+            {
+                txtUsername.Text = saved;
+                chkRemember.Checked = true;
+                txtPassword.Focus();
+            }
         }
 
        
