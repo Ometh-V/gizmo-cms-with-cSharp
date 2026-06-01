@@ -16,13 +16,35 @@ namespace ContactManagementSystem.Helpers
          
          */
 
-        private static readonly string MasterConnection =
-            $"Server={AppConfig.DbServer};Database=master;{AppConfig.DbUser};{AppConfig.DbPassword};TrustServerCertificate=true;";
+        private static readonly string ConnectionString = BuildConnectionString();
+        private static readonly string MasterConnection = BuildMasterConnection();
 
 
+        private static string BuildConnectionString()
+        {
+            // For Windows Authentication (when there is no user and pw)
+            if (string.IsNullOrEmpty(AppConfig.DbUser))
+                return $"Server={AppConfig.DbServer};Database={AppConfig.DbName};" +
+                       $"Integrated Security=true;TrustServerCertificate=true;";
 
-        private static readonly string ConnectionString =
-            $"Server={AppConfig.DbServer};Database={AppConfig.DbName};{AppConfig.DbUser};{AppConfig.DbPassword};TrustServerCertificate=true;";
+            // For SQL Server Authentication (With user and pw)
+            return $"Server={AppConfig.DbServer};Database={AppConfig.DbName};" +
+                   $"User Id={AppConfig.DbUser};Password={AppConfig.DbPassword};" +
+                   $"TrustServerCertificate=true;";
+        }
+
+
+        private static string BuildMasterConnection()
+        {
+            if (string.IsNullOrEmpty(AppConfig.DbUser))
+                return $"Server={AppConfig.DbServer};Database=master;" +
+                       $"Integrated Security=true;TrustServerCertificate=true;";
+
+            return $"Server={AppConfig.DbServer};Database=master;" +
+                   $"User Id={AppConfig.DbUser};Password={AppConfig.DbPassword};" +
+                   $"TrustServerCertificate=true;";
+        }
+
 
         internal static SqlConnection GetConnection()
         {
