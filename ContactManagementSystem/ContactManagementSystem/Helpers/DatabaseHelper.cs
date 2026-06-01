@@ -17,12 +17,12 @@ namespace ContactManagementSystem.Helpers
          */
 
         private static readonly string MasterConnection =
-            $"Server={AppConfig.DbServer};Database=master;User Id={AppConfig.DbUser};Password={AppConfig.DbPassword};TrustServerCertificate=true;";
+            $"Server={AppConfig.DbServer};Database=master;{AppConfig.DbUser};{AppConfig.DbPassword};TrustServerCertificate=true;";
 
 
 
         private static readonly string ConnectionString =
-            $"Server={AppConfig.DbServer};Database={AppConfig.DbName};User Id={AppConfig.DbUser};Password={AppConfig.DbPassword};TrustServerCertificate=true;";
+            $"Server={AppConfig.DbServer};Database={AppConfig.DbName};{AppConfig.DbUser};{AppConfig.DbPassword};TrustServerCertificate=true;";
 
         internal static SqlConnection GetConnection()
         {
