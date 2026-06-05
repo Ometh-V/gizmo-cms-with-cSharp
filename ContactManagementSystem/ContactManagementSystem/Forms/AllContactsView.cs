@@ -19,18 +19,14 @@ namespace ContactManagementSystem.Forms
         private ContactListItem _selectedItem;
 
         // ── Contact data ──────────────────────────────────────────────────────
-        // TODO: Remove this sample array and call your ContactService / DatabaseHelper instead.
-        // Each ContactModel maps directly to a row in your Contacts table.
         private ContactModel[] _contacts;
 
         public AllContactsView()
         {
-            
             this.BackColor = AppColors.Background;
             this.DoubleBuffered = true;
 
-            // Assign avatar colors here once so LoadContacts() and the detail
-            // view both reference the same colour for a given contact.
+            // Sample contact data (replace with database call later)
             _contacts = new ContactModel[]
             {
                 new ContactModel { Id=1, Name="Ashan Kumara",   Email="ashan@email.com",
@@ -59,29 +55,37 @@ namespace ContactManagementSystem.Forms
         // ════════════════════════════════════════════════════════════════════
         private void BuildLayout()
         {
-            _split = new SplitContainer
-            {
-                Dock = DockStyle.Fill,
-                SplitterDistance = 480,      // Initial master-panel width in pixels
-                Panel1MinSize = 300,
-                Panel2MinSize = 260,
-                BackColor = AppColors.Background,
-                SplitterWidth = 1         // 1 px divider line
-            };
+            // 1. Pre-size the base UserControl
+            this.Size = new Size(1000, 600);
+
+            // 2. Create the SplitContainer and FORCE its size immediately
+            _split = new SplitContainer();
+            _split.Size = new Size(1000, 600); // This prevents the crash!
+
+            // 3. Now that it is massive, we can safely apply constraints
+            _split.Dock = DockStyle.Fill;
+            _split.Panel1MinSize = 300;
+            _split.Panel2MinSize = 260;
+            _split.SplitterDistance = 360; // Safely set this right here
+            _split.BackColor = AppColors.Background;
+            _split.SplitterWidth = 1;
+
             _split.Panel1.BackColor = AppColors.Surface;
             _split.Panel2.BackColor = AppColors.Background;
 
-            // Keep item widths correct when the user drags the divider
             _split.SplitterMoved += (s, e) => ResizeListItems();
 
+            // 4. Build children and add to the form
             BuildMasterPanel(_split.Panel1);
             BuildDetailPanel(_split.Panel2);
+
             this.Controls.Add(_split);
         }
 
+
+
         private void BuildMasterPanel(SplitterPanel panel)
         {
-            // ── Header row ────────────────────────────────────────────────────
             var header = new Panel
             {
                 Dock = DockStyle.Top,
@@ -102,9 +106,6 @@ namespace ContactManagementSystem.Forms
             };
             header.Controls.Add(_lblCount);
 
-            // ── Scrollable FlowLayoutPanel — one ContactListItem per contact ──
-            // FlowDirection.TopDown + WrapContents=false stacks items vertically.
-            // AutoScroll adds the scrollbar automatically when items overflow.
             _listFlow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -116,7 +117,6 @@ namespace ContactManagementSystem.Forms
             };
             _listFlow.Resize += (s, e) => ResizeListItems();
 
-            // Fill first, Top second — same Z-order rule as MainForm
             panel.Controls.Add(_listFlow);
             panel.Controls.Add(header);
         }
@@ -127,7 +127,7 @@ namespace ContactManagementSystem.Forms
             {
                 Dock = DockStyle.Fill,
                 BackColor = AppColors.Background,
-                AutoScroll = true    // Handles small window heights gracefully
+                AutoScroll = true
             };
             ShowDetailPlaceholder();
             panel.Controls.Add(_detailPanel);
@@ -150,16 +150,15 @@ namespace ContactManagementSystem.Forms
             foreach (ContactModel c in _contacts)
             {
                 var item = new ContactListItem();
-                item.Width = _listFlow.ClientSize.Width;  // Full-width row
+                item.Width = _listFlow.ClientSize.Width;
                 item.SetData(c.Id, c.Name, c.Email, c.AvatarColor);
-                item.Click += OnContactItemClicked;        // Wire up selection
+                item.Click += OnContactItemClicked;
                 _listFlow.Controls.Add(item);
             }
 
             _lblCount.Text = string.Format("All contacts — {0} contacts", _contacts.Length);
         }
 
-        // Keeps every item's width in sync after a panel resize or splitter drag
         private void ResizeListItems()
         {
             int w = _listFlow.ClientSize.Width;
@@ -175,7 +174,7 @@ namespace ContactManagementSystem.Forms
             var item = sender as ContactListItem;
             if (item == null || item == _selectedItem) return;
 
-            _selectedItem?.SetSelected(false);   // Deselect previous
+            _selectedItem?.SetSelected(false);
             _selectedItem = item;
             _selectedItem.SetSelected(true);
 
@@ -210,21 +209,20 @@ namespace ContactManagementSystem.Forms
         {
             _detailPanel.Controls.Clear();
 
-            int pW = _detailPanel.ClientSize.Width;   // Available width
-            int lX = 24;                              // Left margin for labels
-            int lW = pW - 48;                         // Label width with margins
+            int pW = _detailPanel.ClientSize.Width;
+            int lX = 24;
+            int lW = pW - 48;
 
-            // ── Avatar circle ─────────────────────────────────────────────────
-            // A Panel with a custom Paint event draws a smooth, anti-aliased circle.
+            // Avatar circle
             int avSize = 80;
-            Color avColor = c.AvatarColor;          // Captured in closure
-            string avInitials = GetInitials(c.Name);   // Captured in closure
+            Color avColor = c.AvatarColor;
+            string avInitials = GetInitials(c.Name);
 
             var avatar = new Panel
             {
                 Size = new Size(avSize, avSize),
                 Location = new Point((pW - avSize) / 2, 28),
-                BackColor = AppColors.Background       // Matches panel, hides corners
+                BackColor = AppColors.Background
             };
             avatar.Paint += (s, e) =>
             {
@@ -241,7 +239,7 @@ namespace ContactManagementSystem.Forms
             };
             _detailPanel.Controls.Add(avatar);
 
-            // ── Name ──────────────────────────────────────────────────────────
+            // Name
             _detailPanel.Controls.Add(new Label
             {
                 Text = c.Name,
@@ -252,12 +250,12 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 120)
             });
 
-            // ── Group badge (rounded pill) ────────────────────────────────────
+            // Group badge
             var badge = new Panel
             {
                 Size = new Size(80, 24),
                 Location = new Point((pW - 80) / 2, 156),
-                BackColor = AppColors.Background    // Corners blend into background
+                BackColor = AppColors.Background
             };
             string badgeText = c.Group;
             badge.Paint += (s, e) =>
@@ -276,7 +274,7 @@ namespace ContactManagementSystem.Forms
             };
             _detailPanel.Controls.Add(badge);
 
-            // ── Divider ───────────────────────────────────────────────────────
+            // Divider
             _detailPanel.Controls.Add(new Panel
             {
                 BackColor = AppColors.Border,
@@ -284,14 +282,14 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 194)
             });
 
-            // ── Field rows ────────────────────────────────────────────────────
+            // Field rows
             int y = 208;
             AddFieldRow("EMAIL", c.Email, lX, lW, ref y);
             AddFieldRow("PHONE", c.Phone, lX, lW, ref y);
             AddFieldRow("ADDRESS", c.Address, lX, lW, ref y);
             AddFieldRow("ADDED", c.DateAdded, lX, lW, ref y);
 
-            // ── Edit and Delete buttons ───────────────────────────────────────
+            // Edit and Delete buttons
             y += 10;
             int btnW = (pW - 60) / 2;
 
@@ -309,7 +307,6 @@ namespace ContactManagementSystem.Forms
             btnEdit.FlatAppearance.BorderColor = AppColors.Border;
             btnEdit.FlatAppearance.BorderSize = 1;
             btnEdit.FlatAppearance.MouseOverBackColor = AppColors.NavHover;
-            // TODO: Wire up → open EditContactForm.cs passing c.Id
 
             var btnDelete = new Button
             {
@@ -325,16 +322,11 @@ namespace ContactManagementSystem.Forms
             btnDelete.FlatAppearance.BorderColor = AppColors.Danger;
             btnDelete.FlatAppearance.BorderSize = 1;
             btnDelete.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
-            // TODO: Wire up → call ContactService.Delete(c.Id) then LoadContacts()
 
             _detailPanel.Controls.Add(btnEdit);
             _detailPanel.Controls.Add(btnDelete);
         }
 
-        // ── Detail panel helpers ──────────────────────────────────────────────
-
-        // Adds a two-line field block: grey label on top, white value below.
-        // Uses a ref int y so each call auto-advances the vertical position.
         private void AddFieldRow(string fieldLabel, string value, int x, int width, ref int y)
         {
             _detailPanel.Controls.Add(new Label
@@ -358,7 +350,6 @@ namespace ContactManagementSystem.Forms
             y += 34;
         }
 
-        // Draws a pill/badge shape for the group tag
         private static GraphicsPath RoundedRect(Rectangle b, int r)
         {
             int d = r * 2;
@@ -382,8 +373,6 @@ namespace ContactManagementSystem.Forms
 
         // ════════════════════════════════════════════════════════════════════
         // E. CONTACT DATA MODEL (local to this view)
-        // When you connect your database, replace this class with the model
-        // returned by your ContactService / DatabaseHelper.
         // ════════════════════════════════════════════════════════════════════
         private class ContactModel
         {
