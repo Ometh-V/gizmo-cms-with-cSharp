@@ -60,13 +60,13 @@ namespace ContactManagementSystem.Forms
 
             // 2. Create the SplitContainer and FORCE its size immediately
             _split = new SplitContainer();
-            _split.Size = new Size(1000, 600); // This prevents the crash!
+            _split.Size = new Size(1000, 600); 
 
-            // 3. Now that it is massive, we can safely apply constraints
+           
             _split.Dock = DockStyle.Fill;
             _split.Panel1MinSize = 300;
             _split.Panel2MinSize = 260;
-            _split.SplitterDistance = 360; // Safely set this right here
+            _split.SplitterDistance = 360; 
             _split.BackColor = AppColors.Background;
             _split.SplitterWidth = 1;
 
@@ -162,8 +162,15 @@ namespace ContactManagementSystem.Forms
         private void ResizeListItems()
         {
             int w = _listFlow.ClientSize.Width;
+
+            // Safety check: Do not resize if the FlowPanel hasn't rendered its width yet
+            if (w < 50) return;
+
             foreach (ContactListItem item in _listFlow.Controls)
-                item.Width = w;
+            {
+                // Subtract 5px to prevent the horizontal scrollbar from triggering
+                item.Width = w - 5;
+            }
         }
 
         // ════════════════════════════════════════════════════════════════════
