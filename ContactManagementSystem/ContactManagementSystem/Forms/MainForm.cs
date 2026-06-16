@@ -359,7 +359,40 @@ namespace ContactManagementSystem.Forms
             _btnDashboard.Click += (s, e) => { SetActiveNav(_btnDashboard); _navManager.NavigateTo<DashboardView>(); };
             _btnAllContacts.Click += (s, e) => { SetActiveNav(_btnAllContacts); _navManager.NavigateTo<AllContactsView>(); };
 
-            // Wire Groups / Favourites 
+            _btnImport.Click += (s, e) =>
+            {
+                if (!Session.IsAdmin)
+                {
+                    MessageBox.Show("Only admins can import and export contacts.",
+                        "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Pass the Import mode enum here, and use 'using' to clean up memory
+                using (var form = new ImportExportForm(ImportExportMode.Import))
+                {
+                    if (form.ShowDialog() == DialogResult.OK)
+                    {
+                        _navManager.NavigateTo<AllContactsView>();
+                    }
+                }
+            };
+
+            _btnExport.Click += (s, e) =>
+            {
+                if (!Session.IsAdmin)
+                {
+                    MessageBox.Show("Only admins can import and export contacts.",
+                        "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Pass the Export mode enum here
+                using (var form = new ImportExportForm(ImportExportMode.Export))
+                {
+                    form.ShowDialog();
+                }
+            };
         }
 
         private void AddSectionLabel(string text, ref int y)

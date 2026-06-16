@@ -298,16 +298,31 @@ namespace ContactManagementSystem.Forms
             if (!string.IsNullOrWhiteSpace(c.Notes))
                 AddFieldRow("NOTES", c.Notes, lX, lW, ref y);
 
-            // ← NEW: show loyalty tier if customer
+            // Loyalty summary — Customers only
             if (c.ContactType == "Customer")
             {
                 try
                 {
                     var cust = ContactService.GetCustomerDetails(c.ContactID);
                     if (cust != null)
-                        AddFieldRow("LOYALTY", cust.LoyaltyTier, lX, lW, ref y);
+                    {
+                        var summary = LoyaltyService.GetSummary(cust.CustomerID);
+                        if (summary != null)
+                        {
+                            AddFieldRow("LOYALTY TIER", summary.Tier, summary.TierColor, lX, lW, ref y);
+                            AddFieldRow("POINTS", $"{summary.LoyaltyPoints} pts", lX, lW, ref y);
+                            AddFieldRow("TOTAL SPENT", $"Rs. {summary.TotalPurchases:N2}", lX, lW, ref y);
+                            AddFieldRow("LAST PURCHASE", summary.LastPurchaseFormatted, lX, lW, ref y);
+
+                            if (summary.PointsToNextTier > 0)
+                                AddFieldRow("NEXT TIER", $"{summary.PointsToNextTier} pts to go", lX, lW, ref y);
+                        }
+                    }
                 }
-                catch { /* fail silently if customer details missing */ }
+                catch
+                {
+                    // Loyalty data unavailable — silently skip
+                }
             }
 
             y += 10;
@@ -394,6 +409,7 @@ namespace ContactManagementSystem.Forms
 
         }
 
+        // Original — no custom color (used for EMAIL, PHONE, ADDRESS, etc.)
         private void AddFieldRow(string fieldLabel, string value, int x, int width, ref int y)
         {
             _detailPanel.Controls.Add(new Label
@@ -411,6 +427,30 @@ namespace ContactManagementSystem.Forms
                 Text = value,
                 Font = new Font("Segoe UI", 10f),
                 ForeColor = AppColors.TextPrimary,
+                Size = new Size(width, 22),
+                Location = new Point(x, y)
+            });
+            y += 34;
+        }
+
+        // New overload — custom value color (used for LOYALTY TIER)
+        private void AddFieldRow(string fieldLabel, string value, Color valueColor, int x, int width, ref int y)
+        {
+            _detailPanel.Controls.Add(new Label
+            {
+                Text = fieldLabel,
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = AppColors.TextSecondary,
+                Size = new Size(width, 18),
+                Location = new Point(x, y)
+            });
+            y += 20;
+
+            _detailPanel.Controls.Add(new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = valueColor,
                 Size = new Size(width, 22),
                 Location = new Point(x, y)
             });
