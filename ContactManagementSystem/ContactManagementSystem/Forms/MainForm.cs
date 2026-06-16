@@ -33,6 +33,9 @@ namespace ContactManagementSystem.Forms
         private Button _btnExport;
         private Button _btnSettings;
 
+        private Button _btnManageUsers;
+        private Button _btnLogout;
+
         // Tracks which button is highlighted
         private Button _activeNavButton;
 
@@ -328,11 +331,12 @@ namespace ContactManagementSystem.Forms
             }
         }
 
+
         private void OpenAddUserForm()
         {
-            // Admin only — you will implement this
-            MessageBox.Show("Add User form coming soon!", "Info",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var form = new AddUserForm();
+            form.ShowDialog();
+
         }
 
 
@@ -354,6 +358,39 @@ namespace ContactManagementSystem.Forms
             _btnImport = AddNavButton("↓  Import", ref y);
             _btnExport = AddNavButton("↑  Export", ref y);
             _btnSettings = AddNavButton("⚙  Settings", ref y);
+
+
+            if (Session.IsAdmin)
+            {
+                y += 20;
+                AddSectionLabel("ADMIN", ref y);
+                _btnManageUsers = AddNavButton("🛡  Manage Users", ref y);
+                _btnManageUsers.Click += (s, e) =>
+                {
+                    var form = new UserManagementForm();
+                    form.ShowDialog();
+                };
+            }
+
+
+            _btnLogout = new Button
+            {
+                Text = "⏻  Logout",
+                Font = new Font("Segoe UI", 10f),
+                ForeColor = Color.FromArgb(230, 90, 90),
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(14, 0, 0, 0),
+                Size = new Size(200, 40),
+                Location = new Point(7, _sidebarPanel.Height - 56),
+                Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
+                Cursor = Cursors.Hand
+            };
+            _btnLogout.FlatAppearance.BorderSize = 0;
+            _btnLogout.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
+            _btnLogout.Click += BtnLogout_Click;
+            _sidebarPanel.Controls.Add(_btnLogout);
 
             // Wire up navigation 
             _btnDashboard.Click += (s, e) => { SetActiveNav(_btnDashboard); _navManager.NavigateTo<DashboardView>(); };
@@ -393,6 +430,21 @@ namespace ContactManagementSystem.Forms
                     form.ShowDialog();
                 }
             };
+        }
+
+
+        private void BtnLogout_Click(object sender, EventArgs e)
+        {
+            var confirm = MessageBox.Show(
+                "Are you sure you want to log out?",
+                "Confirm Logout",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (confirm != DialogResult.Yes) return;
+
+            Session.Clear();
+            Session.LoggedOut = true;   
+            this.Close();               
         }
 
         private void AddSectionLabel(string text, ref int y)
