@@ -1,8 +1,10 @@
-﻿using System;
+﻿using ContactManagementSystem.Helpers;
+using ContactManagementSystem.Models;
+using ContactManagementSystem.Services;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
-using ContactManagementSystem.Helpers;
 #nullable disable
 
 namespace ContactManagementSystem.Forms
@@ -17,35 +19,12 @@ namespace ContactManagementSystem.Forms
 
         // ── Selection state ───────────────────────────────────────────────────
         private ContactListItem _selectedItem;
-
-        // ── Contact data ──────────────────────────────────────────────────────
-        private ContactModel[] _contacts;
+        private int _selectedContactId;
 
         public AllContactsView()
         {
             this.BackColor = AppColors.Background;
             this.DoubleBuffered = true;
-
-            // Sample contact data (replace with database call later)
-            _contacts = new ContactModel[]
-            {
-                new ContactModel { Id=1, Name="Ashan Kumara",   Email="ashan@email.com",
-                                   Phone="+94 77 123 4567", Address="Colombo 03, Sri Lanka",
-                                   DateAdded="29 May 2026", Group="Friends",
-                                   AvatarColor=AppColors.AvatarColors[0] },
-                new ContactModel { Id=2, Name="Nimal Perera",   Email="nimal@email.com",
-                                   Phone="+94 71 234 5678", Address="Kandy, Sri Lanka",
-                                   DateAdded="28 May 2026", Group="Work",
-                                   AvatarColor=AppColors.AvatarColors[1] },
-                new ContactModel { Id=3, Name="Saman Fernando", Email="saman@email.com",
-                                   Phone="+94 72 345 6789", Address="Galle, Sri Lanka",
-                                   DateAdded="27 May 2026", Group="Family",
-                                   AvatarColor=AppColors.AvatarColors[2] },
-                new ContactModel { Id=4, Name="Kasun Silva",    Email="kasun@email.com",
-                                   Phone="+94 76 456 7890", Address="Negombo, Sri Lanka",
-                                   DateAdded="26 May 2026", Group="Friends",
-                                   AvatarColor=AppColors.AvatarColors[3] }
-            };
 
             BuildLayout();
         }
@@ -60,13 +39,13 @@ namespace ContactManagementSystem.Forms
 
             // 2. Create the SplitContainer and FORCE its size immediately
             _split = new SplitContainer();
-            _split.Size = new Size(1000, 600); 
+            _split.Size = new Size(1000, 600);
 
-           
+
             _split.Dock = DockStyle.Fill;
             _split.Panel1MinSize = 300;
             _split.Panel2MinSize = 260;
-            _split.SplitterDistance = 360; 
+            _split.SplitterDistance = 360;
             _split.BackColor = AppColors.Background;
             _split.SplitterWidth = 1;
 
@@ -145,18 +124,37 @@ namespace ContactManagementSystem.Forms
         {
             _listFlow.Controls.Clear();
             _selectedItem = null;
+            _selectedContactId = 0;
             ShowDetailPlaceholder();
 
-            foreach (ContactModel c in _contacts)
+            try
             {
-                var item = new ContactListItem();
-                item.Width = _listFlow.ClientSize.Width;
-                item.SetData(c.Id, c.Name, c.Email, c.AvatarColor);
-                item.Click += OnContactItemClicked;
-                _listFlow.Controls.Add(item);
-            }
+                List<Contact> contacts = ContactService.GetAll(); // ← real DB call
 
-            _lblCount.Text = string.Format("All contacts — {0} contacts", _contacts.Length);
+                int colorIndex = 0;
+                foreach (var c in contacts)
+                {
+                    var item = new ContactListItem();
+                    item.Width = _listFlow.ClientSize.Width;
+                    item.SetData(
+                        c.ContactID,   // ← was c.Id
+                        c.FullName,    // ← was c.Name
+                        c.Email,
+                        AppColors.AvatarColors[colorIndex % AppColors.AvatarColors.Length]);
+                    item.Tag = c;   // ← NEW: store full Contact object on the item
+                    item.Click += OnContactItemClicked;
+                    _listFlow.Controls.Add(item);
+                    colorIndex++;
+                }
+
+                _lblCount.Text = $"All contacts — {contacts.Count} contacts";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to load contacts.\n\n{ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void ResizeListItems()
@@ -183,18 +181,16 @@ namespace ContactManagementSystem.Forms
 
             _selectedItem?.SetSelected(false);
             _selectedItem = item;
+            _selectedContactId = item.ContactId; // ← store selected ID
             _selectedItem.SetSelected(true);
 
-            ContactModel contact = FindById(item.ContactId);
-            if (contact != null) ShowContactDetail(contact);
+            // ← CHANGED: get Contact from Tag instead of FindById in sample array
+            var contact = item.Tag as Contact;
+            if (contact != null)
+                ShowContactDetail(contact);
         }
 
-        private ContactModel FindById(int id)
-        {
-            foreach (ContactModel c in _contacts)
-                if (c.Id == id) return c;
-            return null;
-        }
+
 
         // ════════════════════════════════════════════════════════════════════
         // D. DETAIL PANEL — rebuilt each time a new contact is selected
@@ -212,18 +208,18 @@ namespace ContactManagementSystem.Forms
             });
         }
 
-        private void ShowContactDetail(ContactModel c)
+        private void ShowContactDetail(Contact c)
         {
             _detailPanel.Controls.Clear();
 
             int pW = _detailPanel.ClientSize.Width;
             int lX = 24;
             int lW = pW - 48;
-
-            // Avatar circle
             int avSize = 80;
-            Color avColor = c.AvatarColor;
-            string avInitials = GetInitials(c.Name);
+
+            // ← CHANGED: avatar color uses colorIndex logic via ContactID
+            Color avColor = AppColors.AvatarColors[c.ContactID % AppColors.AvatarColors.Length];
+            string avInitials = c.Initials; // ← was GetInitials(c.Name)
 
             var avatar = new Panel
             {
@@ -249,7 +245,7 @@ namespace ContactManagementSystem.Forms
             // Name
             _detailPanel.Controls.Add(new Label
             {
-                Text = c.Name,
+                Text = c.FullName, // ← was c.Name
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = AppColors.TextPrimary,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -257,19 +253,23 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 120)
             });
 
-            // Group badge
+            // ← CHANGED: contact type badge instead of group badge
             var badge = new Panel
             {
-                Size = new Size(80, 24),
-                Location = new Point((pW - 80) / 2, 156),
+                Size = new Size(90, 24),
+                Location = new Point((pW - 90) / 2, 156),
                 BackColor = AppColors.Background
             };
-            string badgeText = c.Group;
+            string badgeText = c.ContactType; // ← was c.Group
+            Color badgeColor = c.ContactType == "Customer"
+                ? Color.FromArgb(37, 99, 180)
+                : Color.FromArgb(100, 60, 160);
             badge.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var path = RoundedRect(new Rectangle(0, 0, badge.Width, badge.Height), 10))
-                using (var brush = new SolidBrush(AppColors.NavActive))
+                using (var path = RoundedRect(
+                    new Rectangle(0, 0, badge.Width, badge.Height), 10))
+                using (var brush = new SolidBrush(badgeColor))
                     e.Graphics.FillPath(brush, path);
                 using (var f = new Font("Segoe UI", 8.5f))
                 {
@@ -289,17 +289,31 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 194)
             });
 
-            // Field rows
+            // ← CHANGED: fields now come from Contact model
             int y = 208;
             AddFieldRow("EMAIL", c.Email, lX, lW, ref y);
             AddFieldRow("PHONE", c.Phone, lX, lW, ref y);
             AddFieldRow("ADDRESS", c.Address, lX, lW, ref y);
-            AddFieldRow("ADDED", c.DateAdded, lX, lW, ref y);
+            AddFieldRow("ADDED", c.CreatedAt.ToString("dd MMM yyyy"), lX, lW, ref y); // ← was c.DateAdded
+            if (!string.IsNullOrWhiteSpace(c.Notes))
+                AddFieldRow("NOTES", c.Notes, lX, lW, ref y);
 
-            // Edit and Delete buttons
+            // ← NEW: show loyalty tier if customer
+            if (c.ContactType == "Customer")
+            {
+                try
+                {
+                    var cust = ContactService.GetCustomerDetails(c.ContactID);
+                    if (cust != null)
+                        AddFieldRow("LOYALTY", cust.LoyaltyTier, lX, lW, ref y);
+                }
+                catch { /* fail silently if customer details missing */ }
+            }
+
             y += 10;
             int btnW = (pW - 60) / 2;
 
+            // Edit button
             var btnEdit = new Button
             {
                 Text = "  Edit",
@@ -315,6 +329,15 @@ namespace ContactManagementSystem.Forms
             btnEdit.FlatAppearance.BorderSize = 1;
             btnEdit.FlatAppearance.MouseOverBackColor = AppColors.NavHover;
 
+            // ← CHANGED: now opens real EditContactForm
+            btnEdit.Click += (s, e) =>
+            {
+                var form = new EditContactForm(_selectedContactId);
+                if (form.ShowDialog() == DialogResult.OK)
+                    LoadContacts(); // refresh list after edit
+            };
+
+            // Delete button
             var btnDelete = new Button
             {
                 Text = "  Delete",
@@ -324,14 +347,51 @@ namespace ContactManagementSystem.Forms
                 FlatStyle = FlatStyle.Flat,
                 Size = new Size(btnW, 38),
                 Location = new Point(28 + btnW, y),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                // ← NEW: hide delete button for non-admins
+                Visible = Session.IsAdmin
             };
             btnDelete.FlatAppearance.BorderColor = AppColors.Danger;
             btnDelete.FlatAppearance.BorderSize = 1;
             btnDelete.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
 
+            // ← CHANGED: now calls real ContactService.Delete with admin check
+            btnDelete.Click += (s, e) =>
+            {
+                if (!Session.IsAdmin)
+                {
+                    MessageBox.Show(
+                        "You don't have permission to delete contacts.",
+                        "Access Denied",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var confirm = MessageBox.Show(
+                    $"Delete {c.FullName}?\nThis cannot be undone.",
+                    "Confirm Delete",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    try
+                    {
+                        ContactService.Delete(_selectedContactId);
+                        LoadContacts();
+                        ShowDetailPlaceholder();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            $"Failed to delete contact.\n\n{ex.Message}",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+
             _detailPanel.Controls.Add(btnEdit);
             _detailPanel.Controls.Add(btnDelete);
+
         }
 
         private void AddFieldRow(string fieldLabel, string value, int x, int width, ref int y)
@@ -378,19 +438,6 @@ namespace ContactManagementSystem.Forms
                 : name[0].ToString().ToUpper();
         }
 
-        // ════════════════════════════════════════════════════════════════════
-        // E. CONTACT DATA MODEL (local to this view)
-        // ════════════════════════════════════════════════════════════════════
-        private class ContactModel
-        {
-            public int Id { get; set; }
-            public string Name { get; set; }
-            public string Email { get; set; }
-            public string Phone { get; set; }
-            public string Address { get; set; }
-            public string DateAdded { get; set; }
-            public string Group { get; set; }
-            public Color AvatarColor { get; set; }
-        }
+
     }
 }
