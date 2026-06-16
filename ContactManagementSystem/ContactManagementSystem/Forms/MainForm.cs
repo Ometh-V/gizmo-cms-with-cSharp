@@ -321,8 +321,11 @@ namespace ContactManagementSystem.Forms
 
         private void OpenAddContactForm()
         {
-            MessageBox.Show("Add Contact form coming soon!", "Info",
-    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var form = new AddContactForm();
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                _navManager.NavigateTo<AllContactsView>();
+            }
         }
 
         private void OpenAddUserForm()
