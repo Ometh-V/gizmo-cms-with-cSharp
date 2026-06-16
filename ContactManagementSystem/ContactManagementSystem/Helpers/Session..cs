@@ -10,6 +10,8 @@ namespace ContactManagementSystem.Helpers
         internal static string UserName { get; set; } = "";
         internal static string Role { get; set; } = "";
 
+        internal static bool LoggedOut { get; set; } = false;
+
         internal static bool IsAdmin => Role == "Admin";
 
         internal static void Clear()
