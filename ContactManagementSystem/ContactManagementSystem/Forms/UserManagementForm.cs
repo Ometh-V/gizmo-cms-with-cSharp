@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ContactManagementSystem.Helpers;
 using ContactManagementSystem.Services;
@@ -15,12 +16,16 @@ namespace ContactManagementSystem.Forms
         private Button btnResetPassword;
         private Label lblCount;
 
+        [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+        [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+        [DllImport("Gdi32.dll")] private static extern IntPtr CreateRoundRectRgn(int l, int t, int r, int b, int we, int he);
+
         public UserManagementForm()
         {
             this.Text = "Manage Users";
-            this.Size = new Size(700, 540);
+            this.Size = new Size(720, 590);
             this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.FormBorderStyle = FormBorderStyle.None;   // custom title bar
             this.MaximizeBox = false;
             this.BackColor = AppColors.Background;
             this.ForeColor = AppColors.TextPrimary;
@@ -31,13 +36,52 @@ namespace ContactManagementSystem.Forms
 
         private void BuildForm()
         {
-            // ── Title ──────────────────────────────────────────
+            // ── Custom title bar ───────────────────────────────────────────
+            var titleBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                BackColor = Color.FromArgb(18, 18, 20)
+            };
+            titleBar.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                { ReleaseCapture(); SendMessage(this.Handle, 0xA1, 0x2, 0); }
+            };
+
+            var lblTitleBar = new Label
+            {
+                Text = "Manage Users",
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(150, 150, 165),
+                AutoSize = true,
+                Location = new Point(14, 9),
+                BackColor = Color.Transparent
+            };
+            lblTitleBar.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                { ReleaseCapture(); SendMessage(this.Handle, 0xA1, 0x2, 0); }
+            };
+
+            var btnClose = MakeTitleBarButton("✕");
+            btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(196, 43, 28);
+            btnClose.Click += (s, e) => this.Close();
+
+            titleBar.Controls.AddRange(new Control[] { lblTitleBar, btnClose });
+            titleBar.Resize += (s, e) => btnClose.Location = new Point(titleBar.Width - 42, 0);
+            this.Controls.Add(titleBar);
+
+            // ── Body ───────────────────────────────────────────────────────
+            int bodyTop = 36;
+
+            // Page title
             this.Controls.Add(new Label
             {
                 Text = "Manage Users",
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = AppColors.TextPrimary,
-                Location = new Point(24, 28),
+                Location = new Point(24, bodyTop + 18),
                 AutoSize = true,
                 BackColor = Color.Transparent
             });
@@ -47,24 +91,24 @@ namespace ContactManagementSystem.Forms
                 Text = "0 users",
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(24, 60),
+                Location = new Point(24, bodyTop + 52),
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
             this.Controls.Add(lblCount);
 
-            // ── + Add User button ──────────────────────────────
-            btnAddUser = MakeButton("+ Add User",
+            // + Add User button
+            btnAddUser = MakeActionButton("+ Add User",
                 Color.FromArgb(37, 99, 180), Color.White,
-                new Point(556, 50), new Size(120, 36));
+                new Point(572, bodyTop + 46), new Size(120, 36));
             btnAddUser.Click += BtnAddUser_Click;
             this.Controls.Add(btnAddUser);
 
-            // ── User list ──────────────────────────────────────
+            // User list
             lstUsers = new ListView
             {
-                Location = new Point(24, 96),
-                Size = new Size(652, 300),
+                Location = new Point(24, bodyTop + 92),
+                Size = new Size(666, 318),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = false,
@@ -81,43 +125,44 @@ namespace ContactManagementSystem.Forms
             lstUsers.SelectedIndexChanged += LstUsers_SelectedIndexChanged;
             this.Controls.Add(lstUsers);
 
-            // ── Action buttons ─────────────────────────────────
-            int by = 408;
+            // Action buttons
+            int by = bodyTop + 424;
+            int bw = 148;
 
-            btnToggleActive = MakeButton("Deactivate",
+            btnToggleActive = MakeActionButton("Deactivate",
                 Color.FromArgb(140, 40, 40), Color.White,
-                new Point(24, by), new Size(140, 38));
+                new Point(24, by), new Size(bw, 38));
             btnToggleActive.Enabled = false;
             btnToggleActive.Click += BtnToggleActive_Click;
             this.Controls.Add(btnToggleActive);
 
-            btnChangeRole = MakeButton("Change Role",
+            btnChangeRole = MakeActionButton("Change Role",
                 AppColors.SurfaceLight, AppColors.TextPrimary,
-                new Point(174, by), new Size(140, 38));
+                new Point(24 + bw + 8, by), new Size(bw, 38));
             btnChangeRole.Enabled = false;
             btnChangeRole.Click += BtnChangeRole_Click;
             this.Controls.Add(btnChangeRole);
 
-            btnResetPassword = MakeButton("Reset Password",
+            btnResetPassword = MakeActionButton("Reset Password",
                 AppColors.SurfaceLight, AppColors.TextPrimary,
-                new Point(324, by), new Size(150, 38));
+                new Point(24 + (bw + 8) * 2, by), new Size(bw, 38));
             btnResetPassword.Enabled = false;
             btnResetPassword.Click += BtnResetPassword_Click;
             this.Controls.Add(btnResetPassword);
 
-            // ── Note ───────────────────────────────────────────
+            // Note
             this.Controls.Add(new Label
             {
                 Text = "Note: Deactivated users cannot log in. The last active admin cannot be deactivated or demoted.",
                 Font = new Font("Segoe UI", 8f),
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(24, 462),
-                Size = new Size(650, 36),
+                Location = new Point(24, by + 50),
+                Size = new Size(666, 36),
                 BackColor = Color.Transparent
             });
         }
 
-        // ── Load users into the list ────────────────────────────
+        // ── Load ────────────────────────────────────────────────────────────
         private void LoadUsers()
         {
             try
@@ -137,17 +182,9 @@ namespace ContactManagementSystem.Forms
                     item.SubItems.Add(role);
                     item.SubItems.Add(isActive ? "Active" : "Deactivated");
                     item.SubItems.Add(created.ToString("dd MMM yyyy"));
-                    item.Tag = new UserRow
-                    {
-                        UserID = userId,
-                        Username = username,
-                        Role = role,
-                        IsActive = isActive
-                    };
+                    item.Tag = new UserRow { UserID = userId, Username = username, Role = role, IsActive = isActive };
 
-                    if (!isActive)
-                        item.ForeColor = AppColors.TextSecondary;
-
+                    if (!isActive) item.ForeColor = AppColors.TextSecondary;
                     lstUsers.Items.Add(item);
                 }
 
@@ -160,15 +197,14 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-        // ── Selection changed ───────────────────────────────────
         private void LstUsers_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool hasSelection = lstUsers.SelectedItems.Count > 0;
-            btnToggleActive.Enabled = hasSelection;
-            btnChangeRole.Enabled = hasSelection;
-            btnResetPassword.Enabled = hasSelection;
+            bool has = lstUsers.SelectedItems.Count > 0;
+            btnToggleActive.Enabled = has;
+            btnChangeRole.Enabled = has;
+            btnResetPassword.Enabled = has;
 
-            if (hasSelection)
+            if (has)
             {
                 var data = (UserRow)lstUsers.SelectedItems[0].Tag;
                 btnToggleActive.Text = data.IsActive ? "Deactivate" : "Activate";
@@ -178,45 +214,34 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-        // ── Add user ─────────────────────────────────────────────
         private void BtnAddUser_Click(object sender, EventArgs e)
         {
             var form = new AddUserForm();
-            if (form.ShowDialog() == DialogResult.OK)
-                LoadUsers();
+            if (form.ShowDialog() == DialogResult.OK) LoadUsers();
         }
 
-        // ── Activate / Deactivate ────────────────────────────────
         private void BtnToggleActive_Click(object sender, EventArgs e)
         {
             if (lstUsers.SelectedItems.Count == 0) return;
             var data = (UserRow)lstUsers.SelectedItems[0].Tag;
 
-            // Prevent deactivating yourself
             if (data.UserID == Session.UserID)
             {
                 MessageBox.Show("You cannot deactivate your own account.",
                     "Action Blocked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-
-            // Prevent deactivating the last active admin
-            if (data.IsActive && data.Role == "Admin" &&
-                UserService.GetActiveAdminCount() <= 1)
+            if (data.IsActive && data.Role == "Admin" && UserService.GetActiveAdminCount() <= 1)
             {
-                MessageBox.Show(
-                    "Cannot deactivate the last active admin.\nPromote another user to Admin first.",
+                MessageBox.Show("Cannot deactivate the last active admin.\nPromote another user to Admin first.",
                     "Action Blocked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             try
             {
-                if (data.IsActive)
-                    UserService.DeactivateUser(data.UserID);
-                else
-                    UserService.ActivateUser(data.UserID);
-
+                if (data.IsActive) UserService.DeactivateUser(data.UserID);
+                else UserService.ActivateUser(data.UserID);
                 LoadUsers();
             }
             catch (Exception ex)
@@ -226,35 +251,24 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-        // ── Change role ──────────────────────────────────────────
         private void BtnChangeRole_Click(object sender, EventArgs e)
         {
             if (lstUsers.SelectedItems.Count == 0) return;
             var data = (UserRow)lstUsers.SelectedItems[0].Tag;
-
             string newRole = data.Role == "Admin" ? "User" : "Admin";
 
-            // Prevent demoting the last active admin
             if (data.Role == "Admin" && UserService.GetActiveAdminCount() <= 1)
             {
-                MessageBox.Show(
-                    "Cannot demote the last active admin.\nPromote another user to Admin first.",
+                MessageBox.Show("Cannot demote the last active admin.\nPromote another user to Admin first.",
                     "Action Blocked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            var confirm = MessageBox.Show(
-                $"Change {data.Username}'s role from {data.Role} to {newRole}?",
-                "Confirm Role Change",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (MessageBox.Show($"Change {data.Username}'s role from {data.Role} to {newRole}?",
+                "Confirm Role Change", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
 
-            if (confirm != DialogResult.Yes) return;
-
-            try
-            {
-                UserService.ChangeRole(data.UserID, newRole);
-                LoadUsers();
-            }
+            try { UserService.ChangeRole(data.UserID, newRole); LoadUsers(); }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to change role.\n\n{ex.Message}",
@@ -262,15 +276,11 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-        // ── Reset password ──────────────────────────────────────
         private void BtnResetPassword_Click(object sender, EventArgs e)
         {
             if (lstUsers.SelectedItems.Count == 0) return;
             var data = (UserRow)lstUsers.SelectedItems[0].Tag;
-
-            string newPassword = PromptForPassword(
-                $"Enter a new password for '{data.Username}':");
-
+            string newPassword = PromptForPassword($"Enter a new password for '{data.Username}':");
             if (string.IsNullOrWhiteSpace(newPassword)) return;
 
             if (newPassword.Length < 6)
@@ -283,8 +293,7 @@ namespace ContactManagementSystem.Forms
             try
             {
                 UserService.ResetPassword(data.UserID, newPassword);
-                MessageBox.Show(
-                    $"Password for '{data.Username}' has been reset.",
+                MessageBox.Show($"Password for '{data.Username}' has been reset.",
                     "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -294,12 +303,17 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-        // ── Small input dialog for password reset ───────────────
         private string PromptForPassword(string message)
         {
             using var form = new Form();
             var label = new Label
-            { Text = message, Location = new Point(10, 10), Size = new Size(280, 40) };
+            {
+                Text = message,
+                Location = new Point(10, 10),
+                Size = new Size(280, 40),
+                ForeColor = AppColors.TextPrimary,
+                BackColor = Color.Transparent
+            };
             var textBox = new TextBox
             {
                 Location = new Point(10, 55),
@@ -318,6 +332,7 @@ namespace ContactManagementSystem.Forms
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
             };
+            btnOk.FlatAppearance.BorderSize = 0;
 
             form.Text = "Reset Password";
             form.Size = new Size(310, 170);
@@ -331,9 +346,27 @@ namespace ContactManagementSystem.Forms
             return form.ShowDialog() == DialogResult.OK ? textBox.Text.Trim() : "";
         }
 
-        // ── Button factory ───────────────────────────────────────
-        private Button MakeButton(string text, Color bg, Color fg,
-            Point loc, Size size)
+        // ── Helpers ─────────────────────────────────────────────────────────
+        private Button MakeTitleBarButton(string text)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                Font = new Font("Segoe UI", 9f),
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(42, 36),
+                BackColor = Color.Transparent,
+                ForeColor = Color.White,
+                TabStop = false
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 60, 65);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(80, 80, 85);
+            btn.UseVisualStyleBackColor = false;
+            return btn;
+        }
+
+        private Button MakeActionButton(string text, Color bg, Color fg, Point loc, Size size)
         {
             var btn = new Button
             {
@@ -344,13 +377,16 @@ namespace ContactManagementSystem.Forms
                 ForeColor = fg,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9.5f),
-                UseVisualStyleBackColor = false
+                UseVisualStyleBackColor = false,
+                Cursor = Cursors.Hand
             };
             btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.MouseOverBackColor = ControlPaint.Light(bg, 0.1f);
+            btn.Region = System.Drawing.Region.FromHrgn(
+                CreateRoundRectRgn(0, 0, size.Width, size.Height, 6, 6));
             return btn;
         }
 
-        // ── Small data holder for ListView tags ──────────────────
         private class UserRow
         {
             public int UserID { get; set; }
