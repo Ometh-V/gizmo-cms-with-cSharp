@@ -29,7 +29,6 @@ namespace ContactManagementSystem.Forms
         private Button _btnDashboard;
         private Button _btnAllContacts;
         private Button _btnGroups;
-        private Button _btnFavourites;
         private Button _btnImport;
         private Button _btnExport;
         private Button _btnSettings;
@@ -317,7 +316,6 @@ namespace ContactManagementSystem.Forms
             _btnDashboard = AddNavButton("⊞  Dashboard", ref y);
             _btnAllContacts = AddNavButton("☰  All contacts", ref y);
             _btnGroups = AddNavButton("⊡  Groups", ref y);
-            _btnFavourites = AddNavButton("★  Favourites", ref y);
 
             y += 20;
 
@@ -381,11 +379,6 @@ namespace ContactManagementSystem.Forms
                     view.OnNavigatedTo();
             };
 
-            _btnFavourites.Click += (s, e) =>
-            {
-                MessageBox.Show("Favourites coming soon!",
-                    "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
 
             _btnImport.Click += (s, e) =>
             {
