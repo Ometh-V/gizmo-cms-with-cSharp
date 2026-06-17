@@ -576,18 +576,45 @@ namespace ContactManagementSystem.Forms
 
         private void RefreshDatabaseStatus()
         {
+            // Temporarily change text so the user knows it's thinking
+            _lblDbStatusText.Text = "Testing connection...";
+            _lblDbStatusText.ForeColor = AppColors.TextSecondary;
+            _lblDbStatusDot.ForeColor = AppColors.TextSecondary;
+            Application.DoEvents(); // Force UI to update immediately
+
             try
             {
                 using var conn = DatabaseHelper.GetConnection();
+
+                // Check the state before trying to open it!
+                if (conn.State == System.Data.ConnectionState.Closed)
+                {
+                    conn.Open();
+                }
+
+                // 1. Update the UI labels
                 _lblDbStatusDot.ForeColor = Color.FromArgb(80, 200, 120);
                 _lblDbStatusText.Text = "Connected";
                 _lblDbStatusText.ForeColor = Color.FromArgb(80, 200, 120);
+
+                // 2. Show the success popup
+                MessageBox.Show("Database connection successfully established!",
+                                "Connection Success",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
+                // 1. Update the UI labels
                 _lblDbStatusDot.ForeColor = Color.FromArgb(220, 80, 80);
-                _lblDbStatusText.Text = $"Connection failed: {ex.Message}";
+                _lblDbStatusText.Text = "Connection failed."; // Shortened to fit the UI better
                 _lblDbStatusText.ForeColor = Color.FromArgb(220, 80, 80);
+
+                // 2. Show the detailed error popup
+                MessageBox.Show($"Failed to connect to the database.\n\n{ex.Message}",
+                                "Connection Error",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
             }
         }
 
