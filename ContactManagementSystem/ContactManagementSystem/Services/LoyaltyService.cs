@@ -188,6 +188,51 @@ namespace ContactManagementSystem.Services
             return (0, 0, 0);
         }
 
+        // ── ADMIN: OVERRIDE TOTAL SPENT ────────────────────────
+        // Allows admins to directly set TotalPurchases and LastPurchaseDate.
+        // Loyalty points are RECALCULATED from the new total (every Rs. 100 = 1 point).
+        // A LoyaltyTransactions log entry is written to record the admin adjustment.
+        internal static void AdminUpdateTotalSpent(int customerID, decimal newTotalSpent, DateTime? lastPurchaseDate)
+        {
+            try
+            {
+                int newPoints = Customer.CalculatePoints(newTotalSpent);
+
+                using var conn = DatabaseHelper.GetConnection();
+
+                // Step 1 — overwrite CustomerDetails with new totals and recalculated points
+                var updateCmd = new SqlCommand(@"
+                    UPDATE CustomerDetails SET
+                        TotalPurchases   = @total,
+                        LoyaltyPoints    = @points,
+                        LastPurchaseDate = @lastDate
+                    WHERE CustomerID = @id", conn);
+
+                updateCmd.Parameters.AddWithValue("@total", newTotalSpent);
+                updateCmd.Parameters.AddWithValue("@points", newPoints);
+                updateCmd.Parameters.AddWithValue("@lastDate", (object?)lastPurchaseDate ?? DBNull.Value);
+                updateCmd.Parameters.AddWithValue("@id", customerID);
+                updateCmd.ExecuteNonQuery();
+
+                // Step 2 — log the admin adjustment in transaction history
+                var logCmd = new SqlCommand(@"
+                    INSERT INTO LoyaltyTransactions
+                        (CustomerID, PointsEarned, PurchaseAmount, Description)
+                    VALUES
+                        (@id, @points, @total, @desc)", conn);
+
+                logCmd.Parameters.AddWithValue("@id", customerID);
+                logCmd.Parameters.AddWithValue("@points", newPoints);
+                logCmd.Parameters.AddWithValue("@total", newTotalSpent);
+                logCmd.Parameters.AddWithValue("@desc", "Admin adjustment — total spent overridden");
+                logCmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to update total spent: {ex.Message}", ex);
+            }
+        }
+
         // ── PRIVATE HELPER ─────────────────────────────────────
         // How many more points needed to reach next tier
         private static int GetPointsToNextTier(int points)
