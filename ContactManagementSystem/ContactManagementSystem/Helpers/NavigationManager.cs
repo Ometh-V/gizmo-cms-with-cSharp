@@ -12,6 +12,9 @@ namespace ContactManagementSystem.Helpers
         // Value = the single cached instance of that view
         private readonly Dictionary<Type, UserControl> _viewCache;
 
+        //tracks the view currently shown on screen ─────
+        public UserControl CurrentView { get; private set; }
+
         public NavigationManager(Panel contentPanel)
         {
             _contentPanel = contentPanel;
@@ -22,7 +25,7 @@ namespace ContactManagementSystem.Helpers
         {
             Type viewType = typeof(T);
 
-           
+
             if (!_viewCache.ContainsKey(viewType))
             {
                 var newView = new T { Dock = DockStyle.Fill };
@@ -37,6 +40,9 @@ namespace ContactManagementSystem.Helpers
 
             // ── 3. Show this view, push all others behind 
             _viewCache[viewType].BringToFront();
+
+            //remember which view is now on top ─────────
+            CurrentView = _viewCache[viewType];
         }
     }
 }
