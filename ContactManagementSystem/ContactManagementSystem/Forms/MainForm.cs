@@ -3,12 +3,13 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ContactManagementSystem.Helpers;
+using ContactManagementSystem.Services;
 
 namespace ContactManagementSystem.Forms
 {
     public partial class MainForm : Form
     {
-        // pannels
+        // Panels
         private Panel _headerPanel;
         private Panel _sidebarPanel;
         private Panel _contentPanel;
@@ -32,7 +33,6 @@ namespace ContactManagementSystem.Forms
         private Button _btnImport;
         private Button _btnExport;
         private Button _btnSettings;
-
         private Button _btnManageUsers;
         private Button _btnLogout;
 
@@ -42,16 +42,13 @@ namespace ContactManagementSystem.Forms
         // Navigation
         private NavigationManager _navManager;
 
-        [DllImport("user32.dll")]
-        private static extern bool ReleaseCapture();
-        [DllImport("user32.dll")]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+        [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+        [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
         public MainForm()
         {
             InitializeComponent();
 
-            // Form properties
             this.Text = "ContactManager";
             this.MinimumSize = new Size(1100, 650);
             this.Size = new Size(1280, 780);
@@ -61,7 +58,6 @@ namespace ContactManagementSystem.Forms
             this.Font = new Font("Segoe UI", 9.5f);
             this.FormBorderStyle = FormBorderStyle.None;
 
-            // docked panels
             BuildShell();
             BuildHeader();
             BuildSidebar();
@@ -71,7 +67,7 @@ namespace ContactManagementSystem.Forms
             _navManager.NavigateTo<DashboardView>();
         }
 
-        // Windows drag support 
+        // ── Windows drag support ────────────────────────────────────────────
         private void Header_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -81,65 +77,34 @@ namespace ContactManagementSystem.Forms
             }
         }
 
-
-        // A. SHELL — three docked panels
+        // ── A. SHELL ────────────────────────────────────────────────────────
         private void BuildShell()
         {
+            // WinForms docking: REVERSE index order.
+            // Fill (0) last → leftover space. Left (1) second. Top (2) first.
 
-            // WinForms docking engine processes controls in REVERSE index order.
-            // Fill (index 0) is evaluated last  → takes leftover space.
-            // Left (index 1) is evaluated second → claims left edge below header.
-            // Top  (index 2) is evaluated first  → claims full top width.
+            _contentPanel = new Panel { Dock = DockStyle.Fill, BackColor = AppColors.Background };
 
-            _contentPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = AppColors.Background
-            };
-
-            _sidebarPanel = new Panel
-            {
-                Dock = DockStyle.Left,
-                Width = 215,
-                BackColor = AppColors.Sidebar
-            };
-
-            // Right border line on sidebar
+            _sidebarPanel = new Panel { Dock = DockStyle.Left, Width = 215, BackColor = AppColors.Sidebar };
             _sidebarPanel.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(AppColors.Border, 1),
-                    _sidebarPanel.Width - 1, 0,
-                    _sidebarPanel.Width - 1, _sidebarPanel.Height);
+                    _sidebarPanel.Width - 1, 0, _sidebarPanel.Width - 1, _sidebarPanel.Height);
 
-            _headerPanel = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 100,
-                BackColor = AppColors.Header
-            };
-
-            // Bottom border line on header
+            _headerPanel = new Panel { Dock = DockStyle.Top, Height = 100, BackColor = AppColors.Header };
             _headerPanel.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(AppColors.Border, 1),
-                    0, _headerPanel.Height - 1,
-                    _headerPanel.Width, _headerPanel.Height - 1);
+                    0, _headerPanel.Height - 1, _headerPanel.Width, _headerPanel.Height - 1);
 
             this.Controls.Add(_contentPanel);
             this.Controls.Add(_sidebarPanel);
             this.Controls.Add(_headerPanel);
         }
 
-
-        // B. HEADER — branding, search box, add-contact button
-
+        // ── B. HEADER ───────────────────────────────────────────────────────
         private void BuildHeader()
         {
-            // ── Row 1: custom title bar (drag + window controls) ──
-            _headerTitleBar = new Panel
-            {
-                Height = 36,
-                Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(18, 18, 20)
-            };
+            // Row 1: custom title bar
+            _headerTitleBar = new Panel { Height = 36, Dock = DockStyle.Top, BackColor = Color.FromArgb(18, 18, 20) };
             _headerTitleBar.MouseDown += Header_MouseDown;
 
             _lblBrand = new Label
@@ -153,7 +118,6 @@ namespace ContactManagementSystem.Forms
             };
             _lblBrand.MouseDown += Header_MouseDown;
 
-            // Logged in user label
             _lblUser = new Label
             {
                 Text = $"👤  {Session.UserName}  ({Session.Role})",
@@ -170,8 +134,7 @@ namespace ContactManagementSystem.Forms
             _btnMaximize = MakeTitleBarButton("□", 1);
             _btnMaximize.Click += (s, e) =>
                 this.WindowState = this.WindowState == FormWindowState.Maximized
-                    ? FormWindowState.Normal
-                    : FormWindowState.Maximized;
+                    ? FormWindowState.Normal : FormWindowState.Maximized;
 
             _btnClose = MakeTitleBarButton("✕", 2);
             _btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(196, 43, 28);
@@ -180,17 +143,11 @@ namespace ContactManagementSystem.Forms
             _headerTitleBar.Controls.AddRange(new Control[]
                 { _lblBrand, _lblUser, _btnMinimize, _btnMaximize, _btnClose });
 
-            // Position window buttons on resize
             _headerTitleBar.Resize += (s, e) => RepositionTitleButtons();
             RepositionTitleButtons();
 
-            // ── Row 2: toolbar (search + buttons) ─────────────
-            var _toolbar = new Panel
-            {
-                Height = 64,
-                Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(25, 25, 35)
-            };
+            // Row 2: toolbar
+            var _toolbar = new Panel { Height = 64, Dock = DockStyle.Top, BackColor = Color.FromArgb(25, 25, 35) };
             _toolbar.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(AppColors.Border, 1),
                     0, _toolbar.Height - 1, _toolbar.Width, _toolbar.Height - 1);
@@ -207,45 +164,62 @@ namespace ContactManagementSystem.Forms
             _txtSearch.GotFocus += (s, e) =>
             {
                 if (_txtSearch.Text == "Search contacts...")
-                {
-                    _txtSearch.Text = "";
-                    _txtSearch.ForeColor = AppColors.TextPrimary;
-                }
+                { _txtSearch.Text = ""; _txtSearch.ForeColor = AppColors.TextPrimary; }
             };
             _txtSearch.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrEmpty(_txtSearch.Text))
+                { _txtSearch.Text = "Search contacts..."; _txtSearch.ForeColor = Color.FromArgb(130, 130, 155); }
+            };
+
+            // Real-time search wired to SearchService
+            _txtSearch.TextChanged += (s, e) =>
+            {
+                string query = _txtSearch.Text.Trim();
+
+                if (query == "Search contacts..." || query.Length == 0)
                 {
-                    _txtSearch.Text = "Search contacts...";
-                    _txtSearch.ForeColor = Color.FromArgb(130, 130, 155);
+                    if (_navManager.CurrentView is AllContactsView emptyView)
+                        emptyView.OnNavigatedTo();
+                    return;
+                }
+
+                if (query.Length < 2) return;
+
+                try
+                {
+                    var results = SearchService.Search(query);
+
+                    if (_navManager.CurrentView is not AllContactsView)
+                    {
+                        SetActiveNav(_btnAllContacts);
+                        _navManager.NavigateTo<AllContactsView>();
+                    }
+
+                    if (_navManager.CurrentView is AllContactsView contactView)
+                        contactView.LoadContacts(results);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Search failed.\n\n{ex.Message}",
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
 
-            // Wrap search in a rounded panel
-            var pnlSearch = new Panel
-            {
-                Size = new Size(310, 36),
-                BackColor = Color.FromArgb(38, 38, 52)
-            };
+            var pnlSearch = new Panel { Size = new Size(310, 36), BackColor = Color.FromArgb(38, 38, 52) };
             pnlSearch.Controls.Add(_txtSearch);
             _txtSearch.Location = new Point(10, 8);
             pnlSearch.Region = System.Drawing.Region.FromHrgn(
                 CreateRoundRectRgn(0, 0, 310, 36, 8, 8));
 
-            // Add Contact button
-            _btnAddContact = MakeToolbarButton("+ Add Contact",
-                Color.FromArgb(37, 99, 180), Color.White);
+            _btnAddContact = MakeToolbarButton("+ Add Contact", Color.FromArgb(37, 99, 180), Color.White);
             _btnAddContact.Click += (s, e) => OpenAddContactForm();
 
-            // Add User button — only visible to admins
-            _btnAddUser = MakeToolbarButton("+ Add User",
-                Color.FromArgb(50, 50, 58), AppColors.TextPrimary);
+            _btnAddUser = MakeToolbarButton("+ Add User", Color.FromArgb(50, 50, 58), AppColors.TextPrimary);
             _btnAddUser.Visible = Session.IsAdmin;
             _btnAddUser.Click += (s, e) => OpenAddUserForm();
 
-            _toolbar.Controls.AddRange(new Control[]
-                { pnlSearch, _btnAddContact, _btnAddUser });
-
+            _toolbar.Controls.AddRange(new Control[] { pnlSearch, _btnAddContact, _btnAddUser });
             _toolbar.Resize += (s, e) => RepositionToolbar(pnlSearch, _toolbar);
 
             _headerPanel.Controls.Add(_toolbar);
@@ -310,13 +284,12 @@ namespace ContactManagementSystem.Forms
         {
             int mid = (toolbar.Height - 36) / 2;
             pnlSearch.Location = new Point(20, mid);
-            _btnAddUser.Location = new Point(toolbar.Width - 290, mid); // Add User first (left)
-            _btnAddContact.Location = new Point(toolbar.Width - 150, mid); // Add Contact second (right)
+            _btnAddUser.Location = new Point(toolbar.Width - 290, mid);
+            _btnAddContact.Location = new Point(toolbar.Width - 150, mid);
         }
 
         private void RepositionHeader()
         {
-            // centre everything in the header height Vertically
             int mid = (_headerPanel.Height - 36) / 2;
             _txtSearch.Location = new Point((_headerPanel.Width - _txtSearch.Width) / 2, mid + 2);
             _btnAddContact.Location = new Point(_headerPanel.Width - _btnAddContact.Width - 24, mid);
@@ -326,22 +299,16 @@ namespace ContactManagementSystem.Forms
         {
             var form = new AddContactForm();
             if (form.ShowDialog() == DialogResult.OK)
-            {
                 _navManager.NavigateTo<AllContactsView>();
-            }
         }
-
 
         private void OpenAddUserForm()
         {
             var form = new AddUserForm();
             form.ShowDialog();
-
         }
 
-
-        // C. SIDEBAR — section labels + nav buttons
-
+        // ── C. SIDEBAR ──────────────────────────────────────────────────────
         private void BuildSidebar()
         {
             int y = 20;
@@ -359,7 +326,6 @@ namespace ContactManagementSystem.Forms
             _btnExport = AddNavButton("↑  Export", ref y);
             _btnSettings = AddNavButton("⚙  Settings", ref y);
 
-
             if (Session.IsAdmin)
             {
                 y += 20;
@@ -372,7 +338,7 @@ namespace ContactManagementSystem.Forms
                 };
             }
 
-
+            // Logout — anchored to bottom of sidebar
             _btnLogout = new Button
             {
                 Text = "⏻  Logout",
@@ -392,9 +358,34 @@ namespace ContactManagementSystem.Forms
             _btnLogout.Click += BtnLogout_Click;
             _sidebarPanel.Controls.Add(_btnLogout);
 
-            // Wire up navigation 
-            _btnDashboard.Click += (s, e) => { SetActiveNav(_btnDashboard); _navManager.NavigateTo<DashboardView>(); };
-            _btnAllContacts.Click += (s, e) => { SetActiveNav(_btnAllContacts); _navManager.NavigateTo<AllContactsView>(); };
+            // ── Nav wiring ─────────────────────────────────────────────────
+            _btnDashboard.Click += (s, e) =>
+            {
+                SetActiveNav(_btnDashboard);
+                _navManager.NavigateTo<DashboardView>();
+            };
+
+            _btnAllContacts.Click += (s, e) =>
+            {
+                SetActiveNav(_btnAllContacts);
+                _navManager.NavigateTo<AllContactsView>();
+            };
+
+            _btnGroups.Click += (s, e) =>
+            {
+                var form = new GroupForm();
+                form.ShowDialog();
+
+                // Refresh contacts in case group assignments changed
+                if (_navManager.CurrentView is AllContactsView view)
+                    view.OnNavigatedTo();
+            };
+
+            _btnFavourites.Click += (s, e) =>
+            {
+                MessageBox.Show("Favourites coming soon!",
+                    "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
 
             _btnImport.Click += (s, e) =>
             {
@@ -404,14 +395,10 @@ namespace ContactManagementSystem.Forms
                         "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-
-                // Pass the Import mode enum here, and use 'using' to clean up memory
                 using (var form = new ImportExportForm(ImportExportMode.Import))
                 {
                     if (form.ShowDialog() == DialogResult.OK)
-                    {
                         _navManager.NavigateTo<AllContactsView>();
-                    }
                 }
             };
 
@@ -423,15 +410,12 @@ namespace ContactManagementSystem.Forms
                         "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-
-                // Pass the Export mode enum here
                 using (var form = new ImportExportForm(ImportExportMode.Export))
                 {
                     form.ShowDialog();
                 }
             };
         }
-
 
         private void BtnLogout_Click(object sender, EventArgs e)
         {
@@ -443,8 +427,8 @@ namespace ContactManagementSystem.Forms
             if (confirm != DialogResult.Yes) return;
 
             Session.Clear();
-            Session.LoggedOut = true;   
-            this.Close();               
+            Session.LoggedOut = true;
+            this.Close();
         }
 
         private void AddSectionLabel(string text, ref int y)
@@ -479,13 +463,11 @@ namespace ContactManagementSystem.Forms
             btn.FlatAppearance.BorderSize = 0;
             btn.FlatAppearance.MouseOverBackColor = AppColors.NavHover;
             btn.FlatAppearance.MouseDownBackColor = AppColors.NavActive;
-
             _sidebarPanel.Controls.Add(btn);
             y += 44;
             return btn;
         }
 
-        // Highlights one button and un-highlights the previous one
         private void SetActiveNav(Button btn)
         {
             if (_activeNavButton != null)

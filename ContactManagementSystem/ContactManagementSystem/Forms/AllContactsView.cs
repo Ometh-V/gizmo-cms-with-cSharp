@@ -2,6 +2,7 @@
 using ContactManagementSystem.Models;
 using ContactManagementSystem.Services;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -16,6 +17,7 @@ namespace ContactManagementSystem.Forms
         private FlowLayoutPanel _listFlow;
         private Panel _detailPanel;
         private Label _lblCount;
+        private ComboBox _cmbSort; // ← NEW: sort dropdown
 
         // ── Selection state ───────────────────────────────────────────────────
         private ContactListItem _selectedItem;
@@ -85,6 +87,42 @@ namespace ContactManagementSystem.Forms
             };
             header.Controls.Add(_lblCount);
 
+            // ── Sort dropdown (owner-drawn to match dark theme) ─
+            _cmbSort = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                DrawMode = DrawMode.OwnerDrawFixed,
+                Width = 110,
+                ItemHeight = 22,
+                Font = new Font("Segoe UI", 8.5f),
+                BackColor = AppColors.SurfaceLight,
+                ForeColor = AppColors.TextPrimary,
+                FlatStyle = FlatStyle.Flat
+            };
+            _cmbSort.Items.AddRange(new object[] { "A-Z", "Z-A", "Newest", "Oldest" });
+            _cmbSort.SelectedIndex = 0;
+            // Position on the right side of the header, vertically centred
+            _cmbSort.Location = new Point(header.Width - _cmbSort.Width - 16,
+                (header.Height - _cmbSort.Height) / 2);
+            _cmbSort.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _cmbSort.SelectedIndexChanged += CmbSort_SelectedIndexChanged;
+
+            // Owner-draw: paint each item with the app dark theme
+            _cmbSort.DrawItem += (s, e) =>
+            {
+                if (e.Index < 0) return;
+                bool isSelected = (e.State & DrawItemState.Selected) != 0;
+                Color bg = isSelected ? AppColors.NavActive : AppColors.SurfaceLight;
+                Color fg = AppColors.TextPrimary;
+
+                e.Graphics.FillRectangle(new SolidBrush(bg), e.Bounds);
+                string itemText = _cmbSort.Items[e.Index].ToString();
+                TextRenderer.DrawText(e.Graphics, itemText, e.Font,
+                    new Point(e.Bounds.X + 6, e.Bounds.Y + 3), fg);
+            };
+
+            header.Controls.Add(_cmbSort);
+
             _listFlow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -120,39 +158,67 @@ namespace ContactManagementSystem.Forms
             LoadContacts();
         }
 
-        private void LoadContacts()
+        // Loads ALL contacts fresh from the database (default view)
+        internal void LoadContacts()
+        {
+            try
+            {
+                List<Contact> contacts = ContactService.GetAll();
+                RenderContacts(contacts, $"All contacts — {contacts.Count} contacts");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to load contacts.\n\n{ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
+        internal void LoadContacts(List<Contact> contacts)
+        {
+            RenderContacts(contacts, $"Results — {contacts.Count} contact(s)");
+        }
+
+
+        private void RenderContacts(List<Contact> contacts, string headerText)
         {
             _listFlow.Controls.Clear();
             _selectedItem = null;
             _selectedContactId = 0;
             ShowDetailPlaceholder();
 
+            int colorIndex = 0;
+            foreach (var c in contacts)
+            {
+                var item = new ContactListItem();
+                item.Width = _listFlow.ClientSize.Width;
+                item.SetData(
+                    c.ContactID,
+                    c.FullName,
+                    c.Email,
+                    AppColors.AvatarColors[colorIndex % AppColors.AvatarColors.Length]);
+                item.Tag = c;
+                item.Click += OnContactItemClicked;
+                _listFlow.Controls.Add(item);
+                colorIndex++;
+            }
+
+            _lblCount.Text = headerText;
+        }
+
+
+        private void CmbSort_SelectedIndexChanged(object sender, EventArgs e)
+        {
             try
             {
-                List<Contact> contacts = ContactService.GetAll(); // ← real DB call
-
-                int colorIndex = 0;
-                foreach (var c in contacts)
-                {
-                    var item = new ContactListItem();
-                    item.Width = _listFlow.ClientSize.Width;
-                    item.SetData(
-                        c.ContactID,   // ← was c.Id
-                        c.FullName,    // ← was c.Name
-                        c.Email,
-                        AppColors.AvatarColors[colorIndex % AppColors.AvatarColors.Length]);
-                    item.Tag = c;   // ← NEW: store full Contact object on the item
-                    item.Click += OnContactItemClicked;
-                    _listFlow.Controls.Add(item);
-                    colorIndex++;
-                }
-
-                _lblCount.Text = $"All contacts — {contacts.Count} contacts";
+                var sorted = SearchService.GetSorted(_cmbSort.SelectedItem.ToString());
+                RenderContacts(sorted, $"All contacts — {sorted.Count} contacts");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to load contacts.\n\n{ex.Message}",
+                    $"Failed to sort contacts.\n\n{ex.Message}",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -184,7 +250,7 @@ namespace ContactManagementSystem.Forms
             _selectedContactId = item.ContactId; // ← store selected ID
             _selectedItem.SetSelected(true);
 
-            // ← CHANGED: get Contact from Tag instead of FindById in sample array
+
             var contact = item.Tag as Contact;
             if (contact != null)
                 ShowContactDetail(contact);
@@ -217,7 +283,7 @@ namespace ContactManagementSystem.Forms
             int lW = pW - 48;
             int avSize = 80;
 
-            // ← CHANGED: avatar color uses colorIndex logic via ContactID
+
             Color avColor = AppColors.AvatarColors[c.ContactID % AppColors.AvatarColors.Length];
             string avInitials = c.Initials; // ← was GetInitials(c.Name)
 
@@ -253,7 +319,7 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 120)
             });
 
-            // ← CHANGED: contact type badge instead of group badge
+
             var badge = new Panel
             {
                 Size = new Size(90, 24),
@@ -289,7 +355,7 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 194)
             });
 
-            // ← CHANGED: fields now come from Contact model
+
             int y = 208;
             AddFieldRow("EMAIL", c.Email, lX, lW, ref y);
             AddFieldRow("PHONE", c.Phone, lX, lW, ref y);
@@ -344,12 +410,12 @@ namespace ContactManagementSystem.Forms
             btnEdit.FlatAppearance.BorderSize = 1;
             btnEdit.FlatAppearance.MouseOverBackColor = AppColors.NavHover;
 
-            // ← CHANGED: now opens real EditContactForm
+
             btnEdit.Click += (s, e) =>
             {
                 var form = new EditContactForm(_selectedContactId);
                 if (form.ShowDialog() == DialogResult.OK)
-                    LoadContacts(); // refresh list after edit
+                    LoadContacts();
             };
 
             // Delete button
@@ -370,7 +436,7 @@ namespace ContactManagementSystem.Forms
             btnDelete.FlatAppearance.BorderSize = 1;
             btnDelete.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
 
-            // ← CHANGED: now calls real ContactService.Delete with admin check
+
             btnDelete.Click += (s, e) =>
             {
                 if (!Session.IsAdmin)
@@ -409,7 +475,6 @@ namespace ContactManagementSystem.Forms
 
         }
 
-        // Original — no custom color (used for EMAIL, PHONE, ADDRESS, etc.)
         private void AddFieldRow(string fieldLabel, string value, int x, int width, ref int y)
         {
             _detailPanel.Controls.Add(new Label
@@ -433,7 +498,7 @@ namespace ContactManagementSystem.Forms
             y += 34;
         }
 
-        // New overload — custom value color (used for LOYALTY TIER)
+
         private void AddFieldRow(string fieldLabel, string value, Color valueColor, int x, int width, ref int y)
         {
             _detailPanel.Controls.Add(new Label
