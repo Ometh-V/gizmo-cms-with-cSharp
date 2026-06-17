@@ -159,7 +159,7 @@ namespace ContactManagementSystem.Forms
         }
 
         // Loads ALL contacts fresh from the database (default view)
-        internal void LoadContacts()
+        private void LoadContacts()
         {
             try
             {
