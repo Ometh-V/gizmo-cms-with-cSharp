@@ -22,6 +22,14 @@ namespace ContactManagementSystem.Forms
         private Button btnSave, btnCancel;
         private Panel pnlTitleBar;
 
+        // ── Customer / Loyalty panel (admin-only) ──────────────
+        private Panel pnlCustomer;
+        private TextBox txtTotalSpent;
+        private DateTimePicker dtpLastPurchase;
+        private CheckBox chkClearLastPurchase;
+        private Label lblLoyaltyPoints;
+        private const int CustomerPanH = 210;
+
         // ── Layout constants ───────────────────────────────────
         private const int FormX = 30;
         private const int FormW = 420;
@@ -232,7 +240,91 @@ namespace ContactManagementSystem.Forms
 
             this.Controls.Add(pnlSupplier);
 
-            // ── Compute button Y and form heights ──────────────
+            // ── Customer / Loyalty panel (admin-only) ──────────
+            pnlCustomer = new Panel
+            {
+                Location = new Point(x, y),
+                Size = new Size(w, CustomerPanH),
+                BackColor = Color.FromArgb(30, 52, 42),
+                Visible = false
+            };
+            pnlCustomer.Paint += (s, e) =>
+                e.Graphics.DrawRectangle(
+                    new Pen(Color.FromArgb(50, 180, 100), 1),
+                    0, 0, pnlCustomer.Width - 1, pnlCustomer.Height - 1);
+
+            int cy = 10;
+
+            // Header label
+            pnlCustomer.Controls.Add(new Label
+            {
+                Text = "🛒  LOYALTY / PURCHASE ADMIN",
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(100, 220, 130),
+                Location = new Point(10, cy),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            });
+            cy += 22;
+
+            // Recalculated points preview label
+            lblLoyaltyPoints = new Label
+            {
+                Text = "Points: —",
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = Color.FromArgb(250, 200, 50),
+                Location = new Point(10, cy),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            pnlCustomer.Controls.Add(lblLoyaltyPoints);
+            cy += 22;
+
+            // Total Spent field
+            AddFieldLabelToPanel("TOTAL SPENT (Rs.)", pnlCustomer, 10, ref cy);
+            txtTotalSpent = new TextBox
+            {
+                Location = new Point(10, cy),
+                Width = w - 20,
+                Height = 28,
+                BackColor = AppColors.SurfaceLight,
+                ForeColor = AppColors.TextPrimary,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 10f)
+            };
+            txtTotalSpent.TextChanged += TxtTotalSpent_TextChanged;
+            pnlCustomer.Controls.Add(txtTotalSpent);
+            cy += 40;
+
+            // Last Purchase Date
+            AddFieldLabelToPanel("LAST PURCHASE DATE", pnlCustomer, 10, ref cy);
+            dtpLastPurchase = new DateTimePicker
+            {
+                Location = new Point(10, cy),
+                Width = w - 20,
+                Format = DateTimePickerFormat.Short,
+                BackColor = AppColors.SurfaceLight,
+                ForeColor = AppColors.TextPrimary,
+                Font = new Font("Segoe UI", 10f),
+                Value = DateTime.Today
+            };
+            pnlCustomer.Controls.Add(dtpLastPurchase);
+            cy += 36;
+
+            chkClearLastPurchase = new CheckBox
+            {
+                Text = "Clear date (no purchases yet)",
+                Location = new Point(10, cy),
+                AutoSize = true,
+                ForeColor = AppColors.TextSecondary,
+                BackColor = Color.Transparent,
+                Font = new Font("Segoe UI", 8.5f)
+            };
+            chkClearLastPurchase.CheckedChanged += (s, e) =>
+                dtpLastPurchase.Enabled = !chkClearLastPurchase.Checked;
+            pnlCustomer.Controls.Add(chkClearLastPurchase);
+
+            this.Controls.Add(pnlCustomer);
             _btnY = y + BtnGapY;                            // below notes (supplier hidden)
             _baseHeight = _btnY + BtnH + BottomPad;
 
@@ -304,6 +396,31 @@ namespace ContactManagementSystem.Forms
                     {
                         lblLoyalty.Text = cust.LoyaltyTier;
                         lblLoyalty.Visible = true;
+
+                        // Show admin loyalty panel only for admins
+                        if (Session.IsAdmin)
+                        {
+                            txtTotalSpent.Text = cust.TotalPurchases.ToString("F2");
+                            UpdatePointsPreview(cust.TotalPurchases);
+
+                            if (cust.LastPurchaseDate.HasValue)
+                            {
+                                dtpLastPurchase.Value = cust.LastPurchaseDate.Value;
+                                chkClearLastPurchase.Checked = false;
+                            }
+                            else
+                            {
+                                chkClearLastPurchase.Checked = true;
+                                dtpLastPurchase.Enabled = false;
+                            }
+
+                            pnlCustomer.Visible = true;
+
+                            int newBtnY = _btnY + CustomerPanH + BtnGapY;
+                            btnSave.Location = new Point(btnSave.Left, newBtnY);
+                            btnCancel.Location = new Point(btnCancel.Left, newBtnY);
+                            this.Height = newBtnY + BtnH + BottomPad;
+                        }
                     }
                 }
 
@@ -366,6 +483,32 @@ namespace ContactManagementSystem.Forms
 
                 ContactService.Update(_contact);
 
+                // ── Save loyalty changes if admin + customer ───
+                if (_contact.ContactType == "Customer" && Session.IsAdmin && pnlCustomer.Visible)
+                {
+                    if (!decimal.TryParse(txtTotalSpent.Text.Trim(), out decimal newTotal) || newTotal < 0)
+                    {
+                        ShowError("Total Spent must be a valid non-negative number.");
+                        btnSave.Enabled = true;
+                        btnSave.Text = "Save Changes";
+                        return;
+                    }
+
+                    var cust = ContactService.GetCustomerDetails(_contactId);
+                    if (cust != null)
+                    {
+                        DateTime? lastDate = chkClearLastPurchase.Checked
+                            ? (DateTime?)null
+                            : dtpLastPurchase.Value.Date;
+
+                        LoyaltyService.AdminUpdateTotalSpent(cust.CustomerID, newTotal, lastDate);
+
+                        // Refresh tier badge
+                        int newPoints = Customer.CalculatePoints(newTotal);
+                        lblLoyalty.Text = LoyaltyService.GetTier(newPoints);
+                    }
+                }
+
                 MessageBox.Show("Contact updated successfully!",
                     "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
@@ -380,6 +523,23 @@ namespace ContactManagementSystem.Forms
                 btnSave.Enabled = true;
                 btnSave.Text = "Save Changes";
             }
+        }
+
+        // ── Live points preview ────────────────────────────────
+        private void TxtTotalSpent_TextChanged(object sender, EventArgs e)
+        {
+            if (decimal.TryParse(txtTotalSpent.Text.Trim(), out decimal val) && val >= 0)
+                UpdatePointsPreview(val);
+            else
+                lblLoyaltyPoints.Text = "Points: —";
+        }
+
+        private void UpdatePointsPreview(decimal total)
+        {
+            int pts = Customer.CalculatePoints(total);
+            string tier = LoyaltyService.GetTier(pts);
+            lblLoyaltyPoints.Text = $"Points: {pts:N0}  →  {tier}";
+            lblLoyaltyPoints.ForeColor = LoyaltyService.GetTierColor(pts);
         }
 
         private void ShowError(string msg) =>
