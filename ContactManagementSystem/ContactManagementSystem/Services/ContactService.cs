@@ -10,18 +10,11 @@ namespace ContactManagementSystem.Services
     internal class ContactService
     {
         // to get all
-        internal static List<Contact> GetAll(string sortOrder = "A-Z")
+        internal static List<Contact> GetAll()
         {
             var list = new List<Contact>();
             try
             {
-                string orderClause = sortOrder switch
-                {
-                    "Z-A" => "ORDER BY FirstName DESC, LastName DESC",
-                    "Recent" => "ORDER BY CreatedAt DESC",
-                    _ => "ORDER BY FirstName, LastName"
-                };
-
                 using var conn = DatabaseHelper.GetConnection();
                 var cmd = new SqlCommand(@"
                     SELECT ContactID, ContactType, FirstName, LastName,
@@ -288,6 +281,34 @@ namespace ContactManagementSystem.Services
                 SELECT COUNT(*) FROM Contacts
                 WHERE  CreatedAt >= DATEADD(day, -30, GETDATE())",
                 conn).ExecuteScalar();
+        }
+
+
+        // ?? NEW: returns the N most recently added contacts ????
+        // Used by DashboardView's "Recently added" panel.
+        internal static List<Contact> GetRecentlyAdded(int count = 5)
+        {
+            var list = new List<Contact>();
+            try
+            {
+                using var conn = DatabaseHelper.GetConnection();
+                var cmd = new SqlCommand(@"
+                    SELECT TOP (@count)
+                           ContactID, ContactType, FirstName, LastName,
+                           Phone, Email, Address, Notes, CreatedAt, UpdatedAt
+                    FROM Contacts
+                    ORDER BY CreatedAt DESC", conn);
+                cmd.Parameters.AddWithValue("@count", count);
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                    list.Add(MapContact(reader));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to load recently added contacts: {ex.Message}", ex);
+            }
+            return list;
         }
 
 
