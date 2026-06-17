@@ -64,6 +64,18 @@ namespace ContactManagementSystem.Forms
             _navManager = new NavigationManager(_contentPanel);
             SetActiveNav(_btnDashboard);
             _navManager.NavigateTo<DashboardView>();
+
+            var prefs = PreferencesService.Load();
+            if (prefs.DefaultLandingPage == "AllContacts")
+            {
+                SetActiveNav(_btnAllContacts);
+                _navManager.NavigateTo<AllContactsView>();
+            }
+            else
+            {
+                SetActiveNav(_btnDashboard);
+                _navManager.NavigateTo<DashboardView>();
+            }
         }
 
         // ── Windows drag support ────────────────────────────────────────────
@@ -394,6 +406,9 @@ namespace ContactManagementSystem.Forms
                         _navManager.NavigateTo<AllContactsView>();
                 }
             };
+
+            //wire the sidebar button setting
+            _btnSettings.Click += (s, e) => { SetActiveNav(_btnSettings); _navManager.NavigateTo<SettingsView>(); };
 
             _btnExport.Click += (s, e) =>
             {

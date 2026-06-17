@@ -441,19 +441,23 @@ namespace ContactManagementSystem.Forms
             {
                 if (!Session.IsAdmin)
                 {
-                    MessageBox.Show(
-                        "You don't have permission to delete contacts.",
-                        "Access Denied",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("You don't have permission to delete contacts.",
+                        "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                var confirm = MessageBox.Show(
-                    $"Delete {c.FullName}?\nThis cannot be undone.",
-                    "Confirm Delete",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                var prefs = PreferencesService.Load();
+                bool proceed = true;
 
-                if (confirm == DialogResult.Yes)
+                if (prefs.ConfirmBeforeDelete)
+                {
+                    var confirm = MessageBox.Show(
+                        $"Delete {c.FullName}?\nThis cannot be undone.",
+                        "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    proceed = confirm == DialogResult.Yes;
+                }
+
+                if (proceed)
                 {
                     try
                     {
@@ -463,8 +467,7 @@ namespace ContactManagementSystem.Forms
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(
-                            $"Failed to delete contact.\n\n{ex.Message}",
+                        MessageBox.Show($"Failed to delete contact.\n\n{ex.Message}",
                             "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }

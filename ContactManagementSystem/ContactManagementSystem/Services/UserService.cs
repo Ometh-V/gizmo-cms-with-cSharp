@@ -180,5 +180,18 @@ namespace ContactManagementSystem.Services
                 throw new Exception($"Failed to reset password: {ex.Message}", ex);
             }
         }
+
+        // Verifies a password against a specific user's stored hash —
+        // used by Settings > Change Password to confirm identity without
+        // the side effects of Login() (which also overwrites Session).
+        internal static bool VerifyPassword(int userId, string password)
+        {
+            using var conn = DatabaseHelper.GetConnection();
+            var cmd = new SqlCommand("SELECT PasswordHash FROM Users WHERE UserID = @id", conn);
+            cmd.Parameters.AddWithValue("@id", userId);
+            var result = cmd.ExecuteScalar();
+            return result != null && (string)result == HashPassword(password);
+        }
+
     }
 }

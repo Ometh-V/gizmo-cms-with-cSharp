@@ -10,17 +10,24 @@ namespace ContactManagementSystem.Services
     internal class ContactService
     {
         // to get all
-        internal static List<Contact> GetAll()
+        internal static List<Contact> GetAll(string sortOrder = "A-Z")
         {
             var list = new List<Contact>();
             try
             {
+                string orderClause = sortOrder switch
+                {
+                    "Z-A" => "ORDER BY FirstName DESC, LastName DESC",
+                    "Recent" => "ORDER BY CreatedAt DESC",
+                    _ => "ORDER BY FirstName, LastName"
+                };
+
                 using var conn = DatabaseHelper.GetConnection();
-                var cmd = new SqlCommand(@"
-                    SELECT ContactID, ContactType, FirstName, LastName,
-                           Phone, Email, Address, Notes, CreatedAt, UpdatedAt
-                    FROM Contacts
-                    ORDER BY FirstName, LastName", conn);
+                var cmd = new SqlCommand($@"
+            SELECT ContactID, ContactType, FirstName, LastName,
+                   Phone, Email, Address, Notes, CreatedAt, UpdatedAt, IsFavourite
+            FROM Contacts
+            {orderClause}", conn);
 
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
