@@ -374,5 +374,30 @@ namespace ContactManagementSystem.Services
             cmd.Parameters.AddWithValue("@id", s.ContactID);
             cmd.ExecuteNonQuery();
         }
+
+        // ?? BULK DELETE ??????????????????????????????????????????
+public static void BulkDeleteContacts(List<int> contactIds)
+{
+    if (contactIds == null || contactIds.Count == 0) return;
+
+    // Converts a list like into a string "1,5,8"
+    string idsString = string.Join(",", contactIds);
+
+    try
+    {
+        using var conn = DatabaseHelper.GetConnection();
+        if (conn.State == System.Data.ConnectionState.Closed) conn.Open();
+
+        // The IN operator deletes all matching IDs simultaneously
+        string query = $"DELETE FROM Contacts WHERE ContactID IN ({idsString})";
+        
+        using var cmd = new SqlCommand(query, conn);
+        cmd.ExecuteNonQuery();
+    }
+    catch (Exception ex)
+    {
+        throw new Exception($"Failed to bulk delete contacts: {ex.Message}", ex);
+    }
+}
     }
 }

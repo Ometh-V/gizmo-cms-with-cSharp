@@ -17,11 +17,14 @@ namespace ContactManagementSystem.Forms
         private FlowLayoutPanel _listFlow;
         private Panel _detailPanel;
         private Label _lblCount;
-        private ComboBox _cmbSort; // ← NEW: sort dropdown
+        private ComboBox _cmbSort;
 
-        // ── Selection state ───────────────────────────────────────────────────
+        // ── Selection & Bulk Delete state ─────────────────────────────────────
         private ContactListItem _selectedItem;
         private int _selectedContactId;
+        private bool _isBulkDeleteMode = false;
+        private Button _btnToggleBulkDelete;
+        private Button _btnConfirmDelete;
 
         public AllContactsView()
         {
@@ -36,14 +39,10 @@ namespace ContactManagementSystem.Forms
         // ════════════════════════════════════════════════════════════════════
         private void BuildLayout()
         {
-            // 1. Pre-size the base UserControl
             this.Size = new Size(1000, 600);
 
-            // 2. Create the SplitContainer and FORCE its size immediately
             _split = new SplitContainer();
             _split.Size = new Size(1000, 600);
-
-
             _split.Dock = DockStyle.Fill;
             _split.Panel1MinSize = 300;
             _split.Panel2MinSize = 260;
@@ -56,17 +55,15 @@ namespace ContactManagementSystem.Forms
 
             _split.SplitterMoved += (s, e) => ResizeListItems();
 
-            // 4. Build children and add to the form
             BuildMasterPanel(_split.Panel1);
             BuildDetailPanel(_split.Panel2);
 
             this.Controls.Add(_split);
         }
 
-
-
         private void BuildMasterPanel(SplitterPanel panel)
         {
+            // 1. Header (Top)
             var header = new Panel
             {
                 Dock = DockStyle.Top,
@@ -87,7 +84,6 @@ namespace ContactManagementSystem.Forms
             };
             header.Controls.Add(_lblCount);
 
-            // ── Sort dropdown (owner-drawn to match dark theme) ─
             _cmbSort = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
@@ -101,13 +97,10 @@ namespace ContactManagementSystem.Forms
             };
             _cmbSort.Items.AddRange(new object[] { "A-Z", "Z-A", "Newest", "Oldest" });
             _cmbSort.SelectedIndex = 0;
-            // Position on the right side of the header, vertically centred
-            _cmbSort.Location = new Point(header.Width - _cmbSort.Width - 16,
-                (header.Height - _cmbSort.Height) / 2);
+            _cmbSort.Location = new Point(header.Width - _cmbSort.Width - 16, (header.Height - _cmbSort.Height) / 2);
             _cmbSort.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _cmbSort.SelectedIndexChanged += CmbSort_SelectedIndexChanged;
 
-            // Owner-draw: paint each item with the app dark theme
             _cmbSort.DrawItem += (s, e) =>
             {
                 if (e.Index < 0) return;
@@ -120,9 +113,50 @@ namespace ContactManagementSystem.Forms
                 TextRenderer.DrawText(e.Graphics, itemText, e.Font,
                     new Point(e.Bounds.X + 6, e.Bounds.Y + 3), fg);
             };
-
             header.Controls.Add(_cmbSort);
 
+            // 2. Footer (Bottom) - NEW BULK DELETE CONTROLS
+            var footer = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 60,
+                BackColor = AppColors.Surface
+            };
+            footer.Paint += (s, e) =>
+                e.Graphics.DrawLine(new Pen(AppColors.Border, 1), 0, 0, footer.Width, 0);
+
+            _btnToggleBulkDelete = new Button
+            {
+                Text = "Select Multiple",
+                Size = new Size(120, 32),
+                Location = new Point(16, 14),
+                BackColor = AppColors.SurfaceLight,
+                ForeColor = AppColors.TextPrimary,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Visible = Session.IsAdmin // Security: Admins only
+            };
+            _btnToggleBulkDelete.FlatAppearance.BorderSize = 0;
+            _btnToggleBulkDelete.Click += BtnToggleBulkDelete_Click;
+
+            _btnConfirmDelete = new Button
+            {
+                Text = "Delete Selected",
+                Size = new Size(120, 32),
+                Location = new Point(146, 14),
+                BackColor = Color.FromArgb(220, 80, 80),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Visible = false
+            };
+            _btnConfirmDelete.FlatAppearance.BorderSize = 0;
+            _btnConfirmDelete.Click += BtnConfirmDelete_Click;
+
+            footer.Controls.Add(_btnToggleBulkDelete);
+            footer.Controls.Add(_btnConfirmDelete);
+
+            // 3. Scrollable List (Middle)
             _listFlow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -134,8 +168,11 @@ namespace ContactManagementSystem.Forms
             };
             _listFlow.Resize += (s, e) => ResizeListItems();
 
-            panel.Controls.Add(_listFlow);
+            // Assemble the Master Panel layout
+            panel.Controls.Add(footer);
             panel.Controls.Add(header);
+            panel.Controls.Add(_listFlow);
+            _listFlow.BringToFront();
         }
 
         private void BuildDetailPanel(SplitterPanel panel)
@@ -151,6 +188,68 @@ namespace ContactManagementSystem.Forms
         }
 
         // ════════════════════════════════════════════════════════════════════
+        // A.1 BULK DELETE LOGIC
+        // ════════════════════════════════════════════════════════════════════
+        private void BtnToggleBulkDelete_Click(object sender, EventArgs e)
+        {
+            _isBulkDeleteMode = !_isBulkDeleteMode;
+
+            _btnToggleBulkDelete.Text = _isBulkDeleteMode ? "Cancel" : "Select Multiple";
+            _btnConfirmDelete.Visible = _isBulkDeleteMode;
+
+            // Notify all items to show/hide checkboxes
+            foreach (Control ctrl in _listFlow.Controls)
+            {
+                if (ctrl is ContactListItem item)
+                {
+                    item.ToggleSelectionMode(_isBulkDeleteMode);
+                }
+            }
+        }
+
+        private void BtnConfirmDelete_Click(object sender, EventArgs e)
+        {
+            var selectedIds = new List<int>();
+            foreach (Control ctrl in _listFlow.Controls)
+            {
+                if (ctrl is ContactListItem item && item.IsSelected)
+                {
+                    selectedIds.Add(item.ContactId);
+                }
+            }
+
+            if (selectedIds.Count == 0)
+            {
+                MessageBox.Show("Please select at least one contact to delete.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var confirm = MessageBox.Show($"Are you sure you want to permanently delete {selectedIds.Count} contacts?",
+                                          "Confirm Bulk Delete",
+                                          MessageBoxButtons.YesNo,
+                                          MessageBoxIcon.Warning);
+
+            if (confirm == DialogResult.Yes)
+            {
+                try
+                {
+                    ContactService.BulkDeleteContacts(selectedIds);
+
+                    // Reset UI State and Refresh
+                    BtnToggleBulkDelete_Click(null, null); // Turns mode off
+                    LoadContacts();
+                    ShowDetailPlaceholder();
+
+                    MessageBox.Show($"{selectedIds.Count} contacts successfully deleted.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
         // B. DATA LOADING  (INavigationAware — called on every navigation)
         // ════════════════════════════════════════════════════════════════════
         public void OnNavigatedTo()
@@ -158,7 +257,6 @@ namespace ContactManagementSystem.Forms
             LoadContacts();
         }
 
-        // Loads ALL contacts fresh from the database (default view)
         private void LoadContacts()
         {
             try
@@ -168,18 +266,15 @@ namespace ContactManagementSystem.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Failed to load contacts.\n\n{ex.Message}",
+                MessageBox.Show($"Failed to load contacts.\n\n{ex.Message}",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
 
         internal void LoadContacts(List<Contact> contacts)
         {
             RenderContacts(contacts, $"Results — {contacts.Count} contact(s)");
         }
-
 
         private void RenderContacts(List<Contact> contacts, string headerText)
         {
@@ -187,6 +282,12 @@ namespace ContactManagementSystem.Forms
             _selectedItem = null;
             _selectedContactId = 0;
             ShowDetailPlaceholder();
+
+            // Reset bulk delete mode if it was active
+            if (_isBulkDeleteMode)
+            {
+                BtnToggleBulkDelete_Click(null, null);
+            }
 
             int colorIndex = 0;
             foreach (var c in contacts)
@@ -207,7 +308,6 @@ namespace ContactManagementSystem.Forms
             _lblCount.Text = headerText;
         }
 
-
         private void CmbSort_SelectedIndexChanged(object sender, EventArgs e)
         {
             try
@@ -217,8 +317,7 @@ namespace ContactManagementSystem.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Failed to sort contacts.\n\n{ex.Message}",
+                MessageBox.Show($"Failed to sort contacts.\n\n{ex.Message}",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -227,12 +326,10 @@ namespace ContactManagementSystem.Forms
         {
             int w = _listFlow.ClientSize.Width;
 
-            // Safety check: Do not resize if the FlowPanel hasn't rendered its width yet
             if (w < 50) return;
 
             foreach (ContactListItem item in _listFlow.Controls)
             {
-                // Subtract 5px to prevent the horizontal scrollbar from triggering
                 item.Width = w - 5;
             }
         }
@@ -242,21 +339,21 @@ namespace ContactManagementSystem.Forms
         // ════════════════════════════════════════════════════════════════════
         private void OnContactItemClicked(object sender, EventArgs e)
         {
+            // Do not trigger selection logic if we are actively checking boxes for bulk deletion
+            if (_isBulkDeleteMode) return;
+
             var item = sender as ContactListItem;
             if (item == null || item == _selectedItem) return;
 
             _selectedItem?.SetSelected(false);
             _selectedItem = item;
-            _selectedContactId = item.ContactId; // ← store selected ID
+            _selectedContactId = item.ContactId;
             _selectedItem.SetSelected(true);
-
 
             var contact = item.Tag as Contact;
             if (contact != null)
                 ShowContactDetail(contact);
         }
-
-
 
         // ════════════════════════════════════════════════════════════════════
         // D. DETAIL PANEL — rebuilt each time a new contact is selected
@@ -283,9 +380,8 @@ namespace ContactManagementSystem.Forms
             int lW = pW - 48;
             int avSize = 80;
 
-
             Color avColor = AppColors.AvatarColors[c.ContactID % AppColors.AvatarColors.Length];
-            string avInitials = c.Initials; // ← was GetInitials(c.Name)
+            string avInitials = c.Initials;
 
             var avatar = new Panel
             {
@@ -311,7 +407,7 @@ namespace ContactManagementSystem.Forms
             // Name
             _detailPanel.Controls.Add(new Label
             {
-                Text = c.FullName, // ← was c.Name
+                Text = c.FullName,
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = AppColors.TextPrimary,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -319,14 +415,13 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 120)
             });
 
-
             var badge = new Panel
             {
                 Size = new Size(90, 24),
                 Location = new Point((pW - 90) / 2, 156),
                 BackColor = AppColors.Background
             };
-            string badgeText = c.ContactType; // ← was c.Group
+            string badgeText = c.ContactType;
             Color badgeColor = c.ContactType == "Customer"
                 ? Color.FromArgb(37, 99, 180)
                 : Color.FromArgb(100, 60, 160);
@@ -355,16 +450,15 @@ namespace ContactManagementSystem.Forms
                 Location = new Point(lX, 194)
             });
 
-
             int y = 208;
             AddFieldRow("EMAIL", c.Email, lX, lW, ref y);
             AddFieldRow("PHONE", c.Phone, lX, lW, ref y);
             AddFieldRow("ADDRESS", c.Address, lX, lW, ref y);
-            AddFieldRow("ADDED", c.CreatedAt.ToString("dd MMM yyyy"), lX, lW, ref y); // ← was c.DateAdded
+            AddFieldRow("ADDED", c.CreatedAt.ToString("dd MMM yyyy"), lX, lW, ref y);
             if (!string.IsNullOrWhiteSpace(c.Notes))
                 AddFieldRow("NOTES", c.Notes, lX, lW, ref y);
 
-            // Loyalty summary — Customers only
+            // Loyalty summary
             if (c.ContactType == "Customer")
             {
                 try
@@ -387,14 +481,13 @@ namespace ContactManagementSystem.Forms
                 }
                 catch
                 {
-                    // Loyalty data unavailable — silently skip
+                    // Silent skip
                 }
             }
 
             y += 10;
             int btnW = (pW - 60) / 2;
 
-            // Edit button
             var btnEdit = new Button
             {
                 Text = "  Edit",
@@ -410,7 +503,6 @@ namespace ContactManagementSystem.Forms
             btnEdit.FlatAppearance.BorderSize = 1;
             btnEdit.FlatAppearance.MouseOverBackColor = AppColors.NavHover;
 
-
             btnEdit.Click += (s, e) =>
             {
                 var form = new EditContactForm(_selectedContactId);
@@ -418,7 +510,6 @@ namespace ContactManagementSystem.Forms
                     LoadContacts();
             };
 
-            // Delete button
             var btnDelete = new Button
             {
                 Text = "  Delete",
@@ -429,13 +520,11 @@ namespace ContactManagementSystem.Forms
                 Size = new Size(btnW, 38),
                 Location = new Point(28 + btnW, y),
                 Cursor = Cursors.Hand,
-                // ← NEW: hide delete button for non-admins
                 Visible = Session.IsAdmin
             };
             btnDelete.FlatAppearance.BorderColor = AppColors.Danger;
             btnDelete.FlatAppearance.BorderSize = 1;
             btnDelete.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
-
 
             btnDelete.Click += (s, e) =>
             {
@@ -475,7 +564,6 @@ namespace ContactManagementSystem.Forms
 
             _detailPanel.Controls.Add(btnEdit);
             _detailPanel.Controls.Add(btnDelete);
-
         }
 
         private void AddFieldRow(string fieldLabel, string value, int x, int width, ref int y)
@@ -500,7 +588,6 @@ namespace ContactManagementSystem.Forms
             });
             y += 34;
         }
-
 
         private void AddFieldRow(string fieldLabel, string value, Color valueColor, int x, int width, ref int y)
         {
@@ -542,10 +629,8 @@ namespace ContactManagementSystem.Forms
             if (string.IsNullOrWhiteSpace(name)) return "?";
             string[] parts = name.Trim().Split(' ');
             return parts.Length >= 2
-                ? string.Format("{0}{1}", parts[0][0], parts[1][0]).ToUpper()
-                : name[0].ToString().ToUpper();
+                ? string.Format("{0}{1}", parts, parts).ToUpper()
+                : name.ToString().ToUpper();
         }
-
-
     }
 }
