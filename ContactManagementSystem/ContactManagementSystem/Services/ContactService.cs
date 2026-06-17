@@ -23,11 +23,11 @@ namespace ContactManagementSystem.Services
                 };
 
                 using var conn = DatabaseHelper.GetConnection();
-                var cmd = new SqlCommand($@"
-            SELECT ContactID, ContactType, FirstName, LastName,
-                   Phone, Email, Address, Notes, CreatedAt, UpdatedAt, IsFavourite
-            FROM Contacts
-            {orderClause}", conn);
+                var cmd = new SqlCommand(@"
+                    SELECT ContactID, ContactType, FirstName, LastName,
+                           Phone, Email, Address, Notes, CreatedAt, UpdatedAt
+                    FROM Contacts
+                    ORDER BY FirstName, LastName", conn);
 
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
