@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
-using ContactManagementSystem.Helpers; // Required for AppColors
+using ContactManagementSystem.Helpers;
 
 namespace ContactManagementSystem.Forms
 {
@@ -12,11 +12,14 @@ namespace ContactManagementSystem.Forms
         private Panel _pnlAvatar = null!;
         private Label _lblName = null!;
         private Label _lblEmail = null!;
+        private CheckBox _chkSelect = null!; // Grouped up here for consistency
         private string _initials = "??";
 
-        // Properties expected by AllContactsView
         public int ContactId { get; private set; }
         public Color AvatarColor { get; private set; } = Color.SteelBlue;
+
+        // REQUIRED FOR BULK DELETE: Allows the main form to check if this item is ticked
+        public bool IsSelected => _chkSelect.Checked;
 
         public ContactListItem()
         {
@@ -37,19 +40,38 @@ namespace ContactManagementSystem.Forms
             _lblName = new Label { Text = "Name", ForeColor = AppColors.TextPrimary, Font = new Font("Segoe UI", 11, FontStyle.Bold), Location = new Point(70, 12), AutoSize = true };
             _lblEmail = new Label { Text = "email", ForeColor = AppColors.TextSecondary, Font = new Font("Segoe UI", 9, FontStyle.Regular), Location = new Point(70, 35), AutoSize = true };
 
+            _chkSelect = new CheckBox
+            {
+                Size = new Size(20, 20),
+                Location = new Point(10, (this.Height - 20) / 2),
+                Visible = false,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+
+            this.Controls.Add(_chkSelect);
             this.Controls.Add(_pnlAvatar);
             this.Controls.Add(_lblName);
             this.Controls.Add(_lblEmail);
 
-            // Pass clicks through to the main control
             _lblName.Click += (s, e) => this.OnClick(e);
             _lblEmail.Click += (s, e) => this.OnClick(e);
             _pnlAvatar.Click += (s, e) => this.OnClick(e);
         }
 
-        /// <summary>
-        /// Feeds database information into the visual labels
-        /// </summary>
+        // REQUIRED FOR BULK DELETE: Toggles visibility and safely shifts the layout
+        public void ToggleSelectionMode(bool isSelecting)
+        {
+            _chkSelect.Visible = isSelecting;
+            _chkSelect.Checked = false; // Always uncheck when turning mode on/off
+
+            // Dynamically shift the UI to the right so it doesn't overlap the CheckBox
+            int shift = isSelecting ? 30 : 0;
+            _pnlAvatar.Location = new Point(15 + shift, 15);
+            _lblName.Location = new Point(70 + shift, 12);
+            _lblEmail.Location = new Point(70 + shift, 35);
+        }
+
         public void SetData(int id, string name, string email, Color avatarColor)
         {
             ContactId = id;
@@ -57,18 +79,24 @@ namespace ContactManagementSystem.Forms
             _lblEmail.Text = email;
             AvatarColor = avatarColor;
 
-            // Extract the first letter of the first and last name for the avatar
-            string[] parts = name.Trim().Split(' ');
-            _initials = parts.Length >= 2
-                ? $"{parts}{parts}".ToUpper()
-                : $"{name}".ToUpper();
+            // FIXED: Grabbing the actual first letters instead of calling .ToString() on an array
+            string[] parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+            {
+                _initials = $"{parts}{parts}".ToUpper();
+            }
+            else if (name.Length > 0)
+            {
+                _initials = name.ToString().ToUpper();
+            }
+            else
+            {
+                _initials = "??";
+            }
 
-            _pnlAvatar.Invalidate(); // Forces the circle to redraw
+            _pnlAvatar.Invalidate();
         }
 
-        /// <summary>
-        /// Visually highlights the row when clicked
-        /// </summary>
         public void SetSelected(bool isSelected)
         {
             this.BackColor = isSelected ? AppColors.NavActive : AppColors.Surface;
