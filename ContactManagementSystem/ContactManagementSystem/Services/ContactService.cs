@@ -284,8 +284,6 @@ namespace ContactManagementSystem.Services
         }
 
 
-        // ?? NEW: returns the N most recently added contacts ????
-        // Used by DashboardView's "Recently added" panel.
         internal static List<Contact> GetRecentlyAdded(int count = 5)
         {
             var list = new List<Contact>();

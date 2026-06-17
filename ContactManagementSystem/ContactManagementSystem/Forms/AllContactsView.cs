@@ -115,7 +115,7 @@ namespace ContactManagementSystem.Forms
             };
             header.Controls.Add(_cmbSort);
 
-            // 2. Footer (Bottom) - NEW BULK DELETE CONTROLS
+            // 2. Footer (Bottom) - BULK DELETE CONTROLS
             var footer = new Panel
             {
                 Dock = DockStyle.Bottom,

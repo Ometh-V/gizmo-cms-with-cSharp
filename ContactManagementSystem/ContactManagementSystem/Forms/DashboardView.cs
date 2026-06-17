@@ -13,11 +13,11 @@ namespace ContactManagementSystem.Forms
     public partial class DashboardView : UserControl, INavigationAware
     {
         // Order: 0=Total, 1=Customers, 2=Suppliers, 3=Recent,
-        //        4=Newbie, 5=Regular, 6=VIP, 7=Groups (← NEW)
+        //        4=Newbie, 5=Regular, 6=VIP, 7=Groups 
         private readonly List<Label> _statValues = new List<Label>();
         private Label _lblWelcome;
 
-        // ── NEW: recently added panel ───────────────────────────
+        // ──  recently added panel ───────────────────────────
         private Panel _recentPanel;
         private FlowLayoutPanel _recentFlow;
 
@@ -55,13 +55,13 @@ namespace ContactManagementSystem.Forms
             AddStatCard("Suppliers", AppColors.AvatarColors[2], new Point(420, 130));
             AddStatCard("Added This Month", AppColors.AvatarColors[4], new Point(610, 130));
 
-            // ── Row 2: loyalty tier breakdown + groups (← NEW card) ──────────
+            // ── Row 2: loyalty tier breakdown + groups  ──────────
             AddStatCard("Newbie", Color.FromArgb(100, 180, 100), new Point(40, 240));
             AddStatCard("Regular", Color.FromArgb(250, 200, 50), new Point(230, 240));
             AddStatCard("VIP", Color.FromArgb(100, 160, 255), new Point(420, 240));
             AddStatCard("Groups", Color.FromArgb(120, 100, 220), new Point(610, 240));
 
-            // ── Row 3: recently added contacts panel (← NEW) ─────────────────
+            // ── Row 3: recently added contacts panel ─────────────────
             BuildRecentPanel();
         }
 
@@ -103,7 +103,7 @@ namespace ContactManagementSystem.Forms
             this.Controls.Add(card);
         }
 
-        // ── NEW: builds the "Recently added" card with its own list ────────
+        // ──  builds the "Recently added" card with its own list ────────
         private void BuildRecentPanel()
         {
             _recentPanel = new Panel
@@ -141,7 +141,7 @@ namespace ContactManagementSystem.Forms
             this.Controls.Add(_recentPanel);
         }
 
-        // ── NEW: builds one row inside the recently added list ─────────────
+        // ──  builds one row inside the recently added list ─────────────
         private void AddRecentRow(Contact c)
         {
             var row = new Panel
@@ -205,7 +205,7 @@ namespace ContactManagementSystem.Forms
             _recentFlow.Controls.Add(row);
         }
 
-        // ── NEW: formats a date as "2 days ago", "Just now" etc. ───────────
+        // ──  formats a date as "2 days ago", "Just now" etc. ───────────
         private static string TimeAgo(DateTime date)
         {
             var span = DateTime.Now - date;
@@ -231,12 +231,12 @@ namespace ContactManagementSystem.Forms
                 _statValues[5].Text = regular.ToString();
                 _statValues[6].Text = vip.ToString();
 
-                // ── NEW: groups count ───────────────────────────
+                // ──  groups count ───────────────────────────
                 _statValues[7].Text = GroupService.GetCount().ToString();
 
                 _lblWelcome.Text = $"Welcome back, {Session.UserName}!";
 
-                // ── NEW: load recently added contacts ───────────
+                // ──  load recently added contacts ───────────
                 _recentFlow.Controls.Clear();
                 var recent = ContactService.GetRecentlyAdded(5);
 
@@ -262,7 +262,7 @@ namespace ContactManagementSystem.Forms
                 foreach (var lbl in _statValues)
                     lbl.Text = "—";
 
-                // ── CHANGED: surface the actual error instead of
+                // ── surface the actual error instead of
                 // silently failing, so connection issues are visible
                 // during testing instead of just showing dashes.
                 MessageBox.Show(
